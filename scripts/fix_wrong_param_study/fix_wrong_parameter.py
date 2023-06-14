@@ -274,6 +274,7 @@ def fit_func(model_class_name, dataset_index, fix_param, protocol):
         if os.path.exists(sub_dir):
             fit_fig.savefig(os.path.join(fitting_output_dir, f"fit_{protocol}_{fix_param_val:.4e}_"
                                          + f"{dataset_index}.png"))
+            plt.close(fit_fig)
             fitting_df.to_csv(os.path.join(fitting_output_dir, f"fit_{protocol}_{fix_param_val:.4e}_"
                                            + f"{dataset_index}.csv"))
 
@@ -322,6 +323,8 @@ def generate_synthetic_data_sets(protocols, n_repeats, parameters=None,
 
                 data_df = pd.DataFrame(np.vstack(data_set).T, columns=['time / ms', 'current / nA'])
                 data_df.to_csv(os.path.join(output_dir, f"synthetic_data_{protocol}_{i}.csv"))
+
+            plt.close(fig)
 
         list_of_data_sets.append(data_sets)
     return list_of_data_sets
@@ -453,6 +456,10 @@ def compute_predictions_df(params_df, model_class, datasets, datasets_df,
                                                                       'validation_protocol',
                                                                       'score', 'RMSE_DGP'] + param_labels)
     predictions_df['RMSE'] = predictions_df['score']
+
+    plt.close(trace_fig)
+    plt.close(all_models_fig)
+
     return predictions_df
 
 
