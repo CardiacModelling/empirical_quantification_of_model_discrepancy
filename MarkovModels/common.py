@@ -421,7 +421,8 @@ def fit_model(mm, data, times=None, starting_parameters=None,
               fix_parameters=[], max_iterations=None, subset_indices=None,
               method=pints.CMAES, solver=None, log_transform=True, repeats=1,
               return_fitting_df=False, parallel=False,
-              randomise_initial_guess=True, output_dir=None, solver_type=None):
+              randomise_initial_guess=True, output_dir=None, solver_type=None,
+              threshold=1e-11, iterations_unchanged=200):
     """
     Fit a MarkovModel to some dataset using pints.
 
@@ -633,6 +634,8 @@ def fit_model(mm, data, times=None, starting_parameters=None,
                                                   boundaries=boundaries,
                                                   method=method,
                                                   transformation=transformation)
+        controller.set_max_unchanged_iterations(iterations_unchanged, threshold)
+
         if not parallel:
             controller.set_parallel(False)
 

@@ -233,7 +233,8 @@ def fit_func(model_class_name, dataset_index, fix_param, protocol):
             params = default_guess.copy()
 
         fitting_output_dir = os.path.join(sub_dir, f"{fix_param_val:.4e}")
-        params, score, fitting_df = common.fit_model(mm, data, fix_parameters=[fix_param],
+        params, score, fitting_df = common.fit_model(mm, data,
+                                                     fix_parameters=[fix_param],
                                                      randomise_initial_guess=False,
                                                      repeats=args.repeats,
                                                      max_iterations=args.max_iterations,
@@ -242,7 +243,8 @@ def fit_func(model_class_name, dataset_index, fix_param, protocol):
                                                      subset_indices=indices,
                                                      method=args.method,
                                                      output_dir=fitting_output_dir,
-                                                     return_fitting_df=True)
+                                                     return_fitting_df=True,
+                                                     threshold=1e-8)
 
         if score > min(pre_score1, pre_score2):
             logging.warning("Fitting resulting in worse score than default/previous parameters."
