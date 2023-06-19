@@ -245,7 +245,6 @@ def fit_func(model_class_name, dataset_index, fix_param, protocol):
                                                          method=args.method,
                                                          output_dir=fitting_output_dir,
                                                          return_fitting_df=True,
-                                                         check_boundaries=False,
                                                          threshold=1e-6)
 
         except ValueError:
