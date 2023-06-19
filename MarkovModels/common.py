@@ -422,7 +422,7 @@ def fit_model(mm, data, times=None, starting_parameters=None,
               method=pints.CMAES, solver=None, log_transform=True, repeats=1,
               return_fitting_df=False, parallel=False,
               randomise_initial_guess=True, output_dir=None, solver_type=None,
-              threshold=1e-11, iterations_unchanged=200):
+              threshold=1e-11, iterations_unchanged=200, no_conductance_boundary=False):
     """
     Fit a MarkovModel to some dataset using pints.
 
@@ -524,10 +524,11 @@ def fit_model(mm, data, times=None, starting_parameters=None,
             max_conductance = np.max(data[subset_indices] \
                                      / (voltages[subset_indices] - mm.E_rev))
 
-            if mm.GKr_index not in self.fix_parameters:
-                if parameters[mm.GKr_index] > 100 * max_conductance or \
-                   parameters[mm.GKr_index] < 0.01 * max_conductance:
-                    return False
+            if not no_conductance_boundary:
+                if mm.GKr_index not in self.fix_parameters:
+                    if parameters[mm.GKr_index] > 100 * max_conductance or \
+                       parameters[mm.GKr_index] < 0.01 * max_conductance:
+                        return False
 
             # Finally, ensure that all parameters > 0
             return np.all(parameters > 0)

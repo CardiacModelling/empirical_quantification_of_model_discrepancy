@@ -244,7 +244,8 @@ def fit_func(model_class_name, dataset_index, fix_param, protocol):
                                                      method=args.method,
                                                      output_dir=fitting_output_dir,
                                                      return_fitting_df=True,
-                                                     threshold=1e-8)
+                                                     no_conductance_boundary=True,
+                                                     threshold=1e-6)
 
         if score > min(pre_score1, pre_score2):
             logging.warning("Fitting resulting in worse score than default/previous parameters."
@@ -259,7 +260,10 @@ def fit_func(model_class_name, dataset_index, fix_param, protocol):
                                                          subset_indices=indices,
                                                          method=args.method,
                                                          output_dir=fitting_output_dir,
-                                                         return_fitting_df=True)
+                                                         return_fitting_df=True,
+                                                         no_conductance_boundary=True,
+                                                         threshold=1e-6)
+
             append_df = pd.DataFrame([[*true_params.copy(), pre_score2]],
                                      columns=[*mm.get_parameter_labels(),
                                               'score'])
