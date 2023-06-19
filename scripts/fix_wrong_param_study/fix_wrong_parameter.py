@@ -46,7 +46,7 @@ def main():
     parser.add_argument('--cores', '-c', default=1, type=int)
     parser.add_argument('--model', '-m', default='Beattie', type=str)
     parser.add_argument('--method', default='CMAES', type=str)
-    parser.add_argument('--figsize', '-f', help='mcmc chains to run', type=int)
+    parser.add_argument('--figsize', '-f', nargs=2, type=int)
     parser.add_argument('--use_parameter_file')
     parser.add_argument('--protocols', default=common.get_protocol_list(), nargs='+')
     parser.add_argument('--noise', default=0.05, type=float)
@@ -233,23 +233,19 @@ def fit_func(model_class_name, dataset_index, fix_param, protocol):
             params = default_guess.copy()
 
         fitting_output_dir = os.path.join(sub_dir, f"{fix_param_val:.4e}")
-        try:
-            params, score, fitting_df = common.fit_model(mm, data,
-                                                         fix_parameters=[fix_param],
-                                                         randomise_initial_guess=False,
-                                                         repeats=args.repeats,
-                                                         max_iterations=args.max_iterations,
-                                                         starting_parameters=params,
-                                                         solver=solver,
-                                                         subset_indices=indices,
-                                                         method=args.method,
-                                                         output_dir=fitting_output_dir,
-                                                         return_fitting_df=True,
-                                                         check_boundaries=False,
-                                                         threshold=1e-6)
-
-        except ValueError:
-            score = np.inf
+        params, score, fitting_df = common.fit_model(mm, data,
+                                                     fix_parameters=[fix_param],
+                                                     randomise_initial_guess=False,
+                                                     repeats=args.repeats,
+                                                     max_iterations=args.max_iterations,
+                                                     starting_parameters=params,
+                                                     solver=solver,
+                                                     subset_indices=indices,
+                                                     method=args.method,
+                                                     output_dir=fitting_output_dir,
+                                                     return_fitting_df=True,
+                                                     no_conductance_boundary=True,
+                                                     threshold=1e-6)
 
         if score > min(pre_score1, pre_score2):
             logging.warning("Fitting resulting in worse score than default/previous parameters."
@@ -265,7 +261,6 @@ def fit_func(model_class_name, dataset_index, fix_param, protocol):
                                                          method=args.method,
                                                          output_dir=fitting_output_dir,
                                                          return_fitting_df=True,
-                                                         check_boundaries=False,
                                                          threshold=1e-6)
 
             append_df = pd.DataFrame([[*true_params.copy(), pre_score2]],
