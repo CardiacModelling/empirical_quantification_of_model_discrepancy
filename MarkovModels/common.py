@@ -423,8 +423,7 @@ def fit_model(mm, data, times=None, starting_parameters=None,
               return_fitting_df=False, parallel=False,
               randomise_initial_guess=True, output_dir=None, solver_type=None,
               threshold=1e-11, iterations_unchanged=200,
-              no_conductance_boundary=False,
-              check_boundaries=True):
+              no_conductance_boundary=False):
     """
     Fit a MarkovModel to some dataset using pints.
 
@@ -499,9 +498,6 @@ def fit_model(mm, data, times=None, starting_parameters=None,
             if self.fix_parameters:
                 for i in np.unique(self.fix_parameters):
                     parameters = np.insert(parameters, i, starting_parameters[i])
-
-            if not check_boundaries:
-                return np.all(parameters > 0)
 
             # rates function
             rates_func = mm.get_rates_func(njitted=False)
