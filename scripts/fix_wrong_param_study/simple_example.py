@@ -16,14 +16,18 @@ from matplotlib import rc
 rc('font', **{'family': 'serif', 'serif': ['Computer Modern'], 'size': 8})
 rc('text', usetex=True)
 rc('figure', dpi=500)
+rc('axes', facecolor=[0]*4)
 
 plt.rcParams['legend.title_fontsize'] = '8'
-# plt.rcParams['legend.framealpha'] = 0
-plt.rcParams['legend.markerscale'] = .5
+plt.rcParams['legend.framealpha'] = 0
+# plt.rcParams['legend.markerscale'] = .05
 
 def create_axes(fig):
     gs = GridSpec(5, 4, figure=fig,
-                  height_ratios=[.5, .5, 1, 1, 1])
+                  height_ratios=[.5, .5, 1, 1, 1],
+                  wspace=0.35,
+                  hspace=.25,
+                  top=0.97)
 
     # Setup plots of observation times
     observation_time_axes = [[
@@ -39,29 +43,36 @@ def create_axes(fig):
     ]]
 
     for ax in (observation_time_axes[0][0],
-               observation_time_axes[0][2]):
+               observation_time_axes[0][2],
+               ):
         ax.set_ylabel('$y$', rotation=0)
 
+    for ax in (observation_time_axes[0][1],
+               observation_time_axes[0][3],
+               observation_time_axes[1][0],
+               observation_time_axes[1][1],
+               observation_time_axes[1][2],
+               observation_time_axes[1][3]):
+        ax.set_yticks([])
+
+    for ax in (observation_time_axes[0][0],
+               observation_time_axes[0][1],
+               observation_time_axes[1][0],
+               observation_time_axes[1][1]):
+        ax.set_xticks([])
     for ax in (observation_time_axes[0][2], observation_time_axes[0][3],
                observation_time_axes[1][2], observation_time_axes[1][3]):
         ax.set_xlabel(r'$t$')
 
-    prediction_plot_axs = [fig.add_subplot(gs[2, 0:2]),
-                           fig.add_subplot(gs[2, 2:4])]
+    prediction_plot_axs = [fig.add_subplot(gs[4, 0:2]),
+                           fig.add_subplot(gs[4, 2:4])]
 
-    mcmc_axs = [fig.add_subplot(gs[4, 0:2]),
-                fig.add_subplot(gs[4, 2:4])]
+    mcmc_axs = [fig.add_subplot(gs[3, 0:2]),
+                fig.add_subplot(gs[3, 2:4])]
 
-    scatter_axs = [fig.add_subplot(gs[3, 0:2]),
-                   fig.add_subplot(gs[3, 2:4])
+    scatter_axs = [fig.add_subplot(gs[2, 0:2]),
+                   fig.add_subplot(gs[2, 2:4])
                    ]
-
-    # prediction_plot_ax.set_title(r'\textbf b', loc='left')
-    # scatter_ax.set_title(r'\textbf c', loc='left')
-
-    # for ax in observation_time_axes + prediction_plot_axs, scatter_axs:
-    #     for side in ['top', 'right']:
-    # ax.spines[side].set_visible(False)
 
     for ax in scatter_axs + mcmc_axs + prediction_plot_axs:
         for side in ['top', 'right']:
@@ -111,7 +122,6 @@ def fit_model(dataset, T, ax=None, label='', dataset_index=0):
                                        in T}))
     observed_dataset = observed_dataset[observed_dataset[:, 0].argsort()]
 
-    # use scipy optimise
     def min_func(theta):
         return np.sum((observed_dataset[:, 1] - discrepant_forward_model(theta,
                                                                          T))**2)
@@ -119,12 +129,13 @@ def fit_model(dataset, T, ax=None, label='', dataset_index=0):
 
     bounds = [[0, 1e5], [0, 1e5]]
 
-    n_repeats = 15
+    n_repeats = args.optim_repeats
     result = None
     for i in range(n_repeats):
         x0 = [1, 1]
         if x0[1] > x0[0]:
             x0 = x0[[1, 0]]
+        # use scipy optimise
         new_result = scipy.optimize.dual_annealing(min_func, x0=x0,
                                                    bounds=bounds)
         if result:
@@ -137,7 +148,8 @@ def fit_model(dataset, T, ax=None, label='', dataset_index=0):
         all_T = np.linspace(0, max(*T, 1.2), 100)
         ax.plot(all_T, discrepant_forward_model(result.x, all_T), '--',
                 lw=.75, color='black', label='fitted_model')
-        ax.plot(all_T, true_dgp(true_theta, all_T), label='true DGP', lw=.75)
+        ax.plot(all_T, true_dgp(true_theta, all_T), label='true DGP', lw=.75,
+                color='grey')
 
         ax.set_xlim(0, 1.3)
         ax.set_ylim(0, 2.25)
@@ -145,12 +157,12 @@ def fit_model(dataset, T, ax=None, label='', dataset_index=0):
         print(observed_dataset)
         if len(T) < 15:
             ax.scatter(*observed_dataset.T, color=palette[dataset_index],
-                       marker='x', s=5)
+                       marker='x', s=5, zorder=2, lw=.3)
         else:
             ax.plot(*observed_dataset.T, lw=0.5,
                     color=palette[dataset_index], alpha=.75)
             ax.axvspan(observed_dataset[0, 0], observed_dataset[-1, 0],
-                       alpha=.25, color=palette[dataset_index])
+                       alpha=.15, color=palette[dataset_index])
 
     return result.x
 
@@ -162,7 +174,6 @@ def main():
     argument_parser.add_argument('-o', '--output')
     argument_parser.add_argument('--figsize', default=[4.685, 7.67], type=int,
                                  nargs=2)
-    argument_parser.add_argument('--results_dir')
     argument_parser.add_argument('--no_datasets', default=10, type=int)
     argument_parser.add_argument('--sigma', default=0.01, type=float)
     argument_parser.add_argument('--file_format', default='pdf')
@@ -170,6 +181,8 @@ def main():
     argument_parser.add_argument('--chain_length', default=10000, type=int)
     argument_parser.add_argument('--burn_in', default=0, type=int)
     argument_parser.add_argument('--sampling_frequency', default=10, type=int)
+    argument_parser.add_argument('--optim_repeats', type=int, default=15)
+    argument_parser.add_argument('--results_dir')
 
     global args
     args = argument_parser.parse_args()
@@ -187,7 +200,7 @@ def main():
 
     print(palette)
 
-    fig = plt.figure(figsize=args.figsize, constrained_layout=True)
+    fig = plt.figure(figsize=args.figsize)
     observation_axes, scatter_axes, mcmc_axes, prediction_axes = create_axes(fig)
 
     if not args.results_dir:
@@ -202,6 +215,13 @@ def main():
     for ax in scatter_axes + mcmc_axes:
         ax.set_ylim([.95, 2.25])
         ax.set_xlim([.15, 1.2])
+
+    page_ax = fig.subplots()
+    page_ax.set_xticks([])
+    page_ax.set_yticks([])
+    page_ax.set_position([0, 0, 1, 1])
+    page_ax.axvline(0.5, ls='--', lw=.5, color='black')
+    page_ax.axis('off')
 
     fig.savefig(os.path.join(output_dir, f"Fig1.{args.file_format}"))
 
@@ -235,19 +255,25 @@ def generate_data_and_fit(observation_axes, scatter_ax, mcmc_ax, prediction_ax,
         return np.vstack(thetas)
 
     print(datasets)
-    estimates = [fit_datasets_using_times(datasets, T,
-                                          observation_axes[i],
-                                          label=f"{i}",
-                                          design_index=i) for i, T in enumerate((Ts))]
 
-    all_label = r"$T_{\textrm{all}}'$" if sampling_frequency > 1 \
-        else r"$T_{\textrm{all}}$"
-    estimates.append(fit_datasets_using_times(datasets, all_T, None, all_label))
+    if not args.results_dir:
+        estimates = [fit_datasets_using_times(datasets, T,
+                                              observation_axes[i],
+                                              label=f"{i}",
+                                              design_index=i) for i, T in enumerate((Ts))]
+        all_label = r"$T_{\textrm{all}}'$" if sampling_frequency > 10 \
+            else r"$T_{\textrm{all}}$"
+        estimates.append(fit_datasets_using_times(datasets, all_T, None, all_label))
+    text_x, text_y = (.75, 1.5)
+    if dash:
+        observation_axes[0].set_title(r"n = 101",  x=1)
+    else:
+        observation_axes[0].set_title(r"n = 11", x=1)
 
-    observation_axes[0].set_title(r"$T_1'$" if dash else r'$T_1$')
-    observation_axes[1].set_title(r"$T_2'$" if dash else r'$T_2$')
-    observation_axes[2].set_title(r"$T_3'$" if dash else r'$T_3$')
-    observation_axes[3].set_title(r"$T_4'$" if dash else r'$T_4$')
+    observation_axes[0].text(text_x, text_y, r"$T_1'$" if dash else r'$T_1$')
+    observation_axes[1].text(text_x, text_y, r"$T_2'$" if dash else r'$ T_2$')
+    observation_axes[2].text(text_x, text_y, r"$T_3'$" if dash else r'$T_3$')
+    observation_axes[3].text(text_x, text_y, r"$T_4'$" if dash else r'$T_4$')
 
     rows = []
     if dash:
@@ -255,14 +281,18 @@ def generate_data_and_fit(observation_axes, scatter_ax, mcmc_ax, prediction_ax,
     else:
         T_labels = ['$T_1$', '$T_2$', '$T_3$', '$T_4$', r'$T_{\textrm{all}}$']
 
-    for x, T in zip(estimates, T_labels):
-        row = pd.DataFrame(x, columns=[r'$\hat\theta_1$', r'$\hat\theta_2$'])
-        row['time_range'] = T
-        row['dataset_index'] = list(range(row.values.shape[0]))
-        rows.append(row)
+    if not args.results_dir:
+        for x, T in zip(estimates, T_labels):
+            row = pd.DataFrame(x, columns=[r'$\hat\theta_1$', r'$\hat\theta_2$'])
+            row['time_range'] = T
+            row['dataset_index'] = list(range(row.values.shape[0]))
+            rows.append(row)
 
-    estimates_df = pd.concat(rows, ignore_index=True)
+            estimates_df = pd.concat(rows, ignore_index=True)
 
+    else:
+        fitting_fname = os.path.join(args.results_dir, f"fitting_results_{sampling_frequency}.csv")
+        estimates_df = pd.read_csv(fitting_fname)
     make_scatter_plots(estimates_df, scatter_ax, legend=True)
     make_prediction_plots(estimates_df, datasets, prediction_ax)
 
@@ -270,91 +300,126 @@ def generate_data_and_fit(observation_axes, scatter_ax, mcmc_ax, prediction_ax,
 
     # Now use PINTS MCMC on the same problem
     Ts.append(np.array(all_T))
-    do_mcmc(datasets, Ts, mcmc_ax, sampling_frequency)
 
-    if sampling_frequency > 1:
-        observation_axes[0].set_title(r'\textbf a', loc='left')
-        scatter_ax.set_title(r'\textbf b', loc='left')
-        prediction_ax.set_title(r'\textbf c', loc='left')
-        mcmc_ax.set_title(r'\textbf d', loc='left')
+    do_mcmc(datasets, Ts, mcmc_ax, sampling_frequency, estimates_df)
+
+    offset = -0.05
+
+    if sampling_frequency <= 10:
+        observation_axes[0].set_title(r'\textbf a', loc='left', x=offset)
+        scatter_ax.set_title(r'\textbf c', loc='left', x=offset)
+        prediction_ax.set_title(r'\textbf g', loc='left', x=offset)
+        mcmc_ax.set_title(r'\textbf e', loc='left', x=offset)
+
+    else:
+        observation_axes[0].set_title(r'\textbf b', loc='left', x=offset)
+        scatter_ax.set_title(r'\textbf d', loc='left', x=offset)
+        prediction_ax.set_title(r'\textbf h', loc='left', x=offset)
+        mcmc_ax.set_title(r'\textbf f', loc='left', x=offset)
 
 
-
-def do_mcmc(datasets, observation_times, mcmc_ax, sampling_frequency):
+def do_mcmc(datasets, observation_times, mcmc_ax, sampling_frequency,
+            fitting_df):
     # Use uninformative prior
-    prior = pints.UniformLogPrior([0, 0], [1e1, 1e1])
 
-    class pints_log_likelihood(pints.LogPDF):
-        def __init__(self, observation_times, data, sigma2):
-            self.observation_times = observation_times
-            self.data = data
-            self.sigma2 = sigma2
+    if not args.results_dir:
+        prior = pints.UniformLogPrior([0, 0], [1e1, 1e1])
+        class pints_log_likelihood(pints.LogPDF):
+            def __init__(self, observation_times, data, sigma2):
+                self.observation_times = observation_times
+                self.data = data
+                self.sigma2 = sigma2
 
-        def __call__(self, p):
-            # Likelihood function
+            def __call__(self, p):
+                # Likelihood function
 
-            observed_dataset = np.vstack(list({tuple(row) for row in self.data if row[0]
-                                               in self.observation_times}))
+                observed_dataset = np.vstack(list({tuple(row) for row in self.data if row[0]
+                                                in self.observation_times}))
 
-            observed_dataset = observed_dataset[observed_dataset[:, 0].argsort()][:, 1]
+                observed_dataset = observed_dataset[observed_dataset[:, 0].argsort()][:, 1]
 
-            error = discrepant_forward_model(p, self.observation_times) - observed_dataset
-            SSE = np.sum(error**2)
+                error = discrepant_forward_model(p, self.observation_times) - observed_dataset
+                SSE = np.sum(error**2)
 
-            n = len(self.observation_times)
+                n = len(self.observation_times)
 
-            ll = -n * 0.5 * np.log(2 * np.pi * self.sigma2) - SSE / (2 * self.sigma2)
-            return ll
+                ll = -n * 0.5 * np.log(2 * np.pi * self.sigma2) - SSE / (2 * self.sigma2)
+                return ll
 
-        def n_parameters(self):
-            return len(true_theta)
+            def n_parameters(self):
+                return len(true_theta)
 
-    starting_parameters = prior.sample(n=args.no_chains)
-    # starting_parameters = np.tile(true_theta, reps=[args.no_chains])
+        starting_parameters = prior.sample(n=args.no_chains)
+        # starting_parameters = np.tile(true_theta, reps=[args.no_chains])
 
-    data_set = datasets[0]
+        data_set = datasets[0]
 
-    dfs = []
-    for i, observation_times in enumerate(observation_times):
-        print('performing mcmc on dataset %d' % i)
-        print(data_set)
-        posterior = pints.LogPosterior(pints_log_likelihood(observation_times,
-                                                            data_set, args.sigma**2), prior)
-        mcmc = pints.MCMCController(posterior, args.no_chains,
-                                    starting_parameters,
-                                    method=pints.HaarioBardenetACMC)
+        dfs = []
+        for i, observation_times in enumerate(observation_times):
+            print('performing mcmc on dataset %d' % i)
+            print(data_set)
+            posterior = pints.LogPosterior(pints_log_likelihood(observation_times,
+                                                                data_set, args.sigma**2), prior)
+            mcmc = pints.MCMCController(posterior, args.no_chains,
+                                        starting_parameters,
+                                        method=pints.HaarioBardenetACMC)
 
-        mcmc.set_max_iterations(args.chain_length)
-        samples = mcmc.run()[:, args.burn_in:, :]
+            mcmc.set_max_iterations(args.chain_length)
+            samples = mcmc.run()[:, args.burn_in:, :]
 
-        np.save(os.path.join(output_dir, f"mcmc_chains_chains_{sampling_frequency}.npy"),
-                samples)
+            np.save(os.path.join(output_dir, f"mcmc_chains_{i}_{sampling_frequency}.npy"),
+                    samples)
 
-        sub_df = pd.DataFrame(samples.reshape([-1, 2]), columns=[r'$\theta_1$',
-                                                                 r'$\theta_2$'])
-        sub_df['observation times'] = r'$T_{' f"{i+1}" r'}$' if i < 4 else r'$T_{\textrm{all}}$'
+            sub_df = pd.DataFrame(samples.reshape([-1, 2]),
+                                  columns=[r'$\theta_1$',
+                                           r'$\theta_2$'])
 
-        dfs.append(sub_df)
+            sub_df['observation times'] = r'$T_{' f"{i+1}" r'}$' if i < 4 else r'$T_{\textrm{all}}$'
+            dfs.append(sub_df)
+
+    else:
+
+        dfs = []
+        for i, observation_times in enumerate(observation_times):
+
+            mcmc_fname = os.path.join(args.results_dir, "mcmc_chains_{i}_{sampling_frequency}.csv")
+            samples = np.load(mcmc_fname)
+
+            sub_df = pd.DataFrame(samples.reshape([-1, 2]), columns=[r'$\theta_1$',
+                                                                     r'$\theta_2$'])
+
+            sub_df['observation times'] = r'$T_{' f"{i+1}" r'}$' if i < 4 else r'$T_{\textrm{all}}$'
+            dfs.append(sub_df)
 
     df = pd.concat(dfs, ignore_index=True)
+    plot_mcmc_kde(mcmc_ax, df, fitting_df, palette)
 
-    plot_mcmc_kde(mcmc_ax, df, palette)
 
+def plot_mcmc_kde(mcmc_ax, df, fitting_df, palette):
+    sns.kdeplot(data=df, x=r'$\theta_1$', y=r'$\theta_2$', palette=palette,
+                hue='observation times', levels=[.01, 0.999], ax=mcmc_ax,
+                fill=True, legend=False)
 
-def plot_mcmc_kde(mcmc_ax, df, palette):
-    sns.kdeplot(data=df, x=r'$\theta_1$', y=r'$\theta_2$',
-                palette=palette, hue='observation times',
-                levels=[.05], ax=mcmc_ax,
-                legend=False)
+    # for i, ts in enumerate(df['observation times'].unique()):
+    #     row = df[(fitting_df['observation times'] == ts) &
+    #              (fitting_df['dataset_index' == 0])].head()
+    #     x = row[df.columns[0]]
+    #     y = row[df.columns[1]]
+    #     mcmc_ax.scatter(x=[x], y=[y], color=palette[i], marker='+', lw=.3, s=5,
+    #                     alpha=0.4)
+
+    mcmc_ax.set_xlabel(r'$\theta_1$')
+    mcmc_ax.set_ylabel(r'$\theta_2$')
 
 
 def make_scatter_plots(df, ax, label='', legend=False):
     df['observation times'] = df['time_range']
 
-    g = sns.scatterplot(ax=ax, data=df, x=df.columns[0], y=df.columns[1],
-                        hue='observation times', style='observation times',
-                        s=25, legend=legend)
-    g.legend_.set_title(None)
+    sns.scatterplot(data=df, x=df.columns[0],
+                    y=df.columns[1], palette=palette,
+                    style='observation times', s=5,
+                    hue='observation times', ax=ax)
+
 
 
 def make_prediction_plots(estimates, datasets, ax):
@@ -388,7 +453,7 @@ def make_prediction_plots(estimates, datasets, ax):
     # ax.plot(T, min_predict, '--', color='red')
     # ax.plot(T, max_predict, '--', color='red')
 
-    ax.fill_between(T, min_predict, max_predict, color='orange', alpha=0.25)
+    ax.fill_between(T, min_predict, max_predict, color='grey', alpha=0.25)
 
     ax.set_xlabel(r'$t$')
     ax.set_ylabel(r'$y$', rotation=0)
