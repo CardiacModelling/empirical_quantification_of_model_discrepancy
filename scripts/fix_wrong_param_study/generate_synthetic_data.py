@@ -22,7 +22,7 @@ def main():
     parser.add_argument('-P', '--protocols', nargs='+', default=None)
     parser.add_argument('-p', '--plot', action='store_true', default=False)
     parser.add_argument('--noise', default=0.05, type=float)
-    parser.add_argument('--Erev', '-e', default=None)
+    parser.add_argument('--E_rev', '-e', default=None)
     parser.add_argument('--cpus', '-c', default=1, type=int)
     parser.add_argument('--repeats', '-r', default=10, type=int)
     parser.add_argument('--use_hybrid_solver', action='store_true')
@@ -31,9 +31,9 @@ def main():
     global args
     args = parser.parse_args()
 
-    Erev = common.calculate_reversal_potential()\
-        if args.Erev is None\
-        else args.Erev
+    E_rev = common.calculate_reversal_potential()\
+        if args.E_rev is None\
+        else args.E_rev
 
     global output_dir
     output_dir = common.setup_output_directory(args.output, 'synthetic_data_%s' % args.model)
@@ -55,12 +55,12 @@ def main():
         if args.protocols is None\
         else args.protocols
 
-    tasks = [(p, args.repeats, Erev) for p in protocols]
+    tasks = [(p, args.repeats, E_rev) for p in protocols]
     with multiprocessing.Pool(args.cpus) as pool:
         pool.starmap(generate_data, tasks)
 
 
-def generate_data(protocol, no_repeats, Erev):
+def generate_data(protocol, no_repeats, E_rev):
 
     prot_func, _times, desc = common.get_ramp_protocol_from_csv(protocol)
     print('generating data')
@@ -72,7 +72,7 @@ def generate_data(protocol, no_repeats, Erev):
 
     times_df = pd.DataFrame(times.T, columns=('time',))
     times_df.to_csv(os.path.join(output_dir, f"{args.prefix}-{protocol}-times.csv"))
-    model = model_class(voltage=prot_func, times=times, Erev=Erev,
+    model = model_class(voltage=prot_func, times=times, E_rev=E_rev,
                         parameters=parameters, protocol_description=desc)
 
     if args.use_hybrid_solver:
