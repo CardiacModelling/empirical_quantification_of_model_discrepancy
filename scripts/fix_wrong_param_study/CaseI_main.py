@@ -143,7 +143,9 @@ def do_prediction_plots(axes, results_df, prediction_protocol, data):
 
     vals = sorted(results_df[args.fixed_param].unique())
 
-    assert(len(vals) == 5)
+    assert((len(vals) - 1) % 4 == 0)
+    v_step = len(vals) - 1 / 4
+    vals = vals[::v_step]
 
     voltage_func, times, protocol_desc = common.get_ramp_protocol_from_csv(prediction_protocol)
 
@@ -158,8 +160,6 @@ def do_prediction_plots(axes, results_df, prediction_protocol, data):
 
     # filter out ignored protocols
     training_protocols = [p for p in training_protocols if p not in args.ignore_protocols]
-
-    val = sorted(results_df[args.fixed_param].unique())
 
     model_class = common.get_model_class(args.model_class)
     parameter_labels = model_class().get_parameter_labels()
