@@ -20,7 +20,7 @@ rc('axes', facecolor=[0]*4)
 
 plt.rcParams['legend.title_fontsize'] = '8'
 plt.rcParams['legend.framealpha'] = 0
-# plt.rcParams['legend.markerscale'] = .05
+plt.rcParams['legend.markerscale'] = .05
 
 def create_axes(fig):
     gs = GridSpec(5, 4, figure=fig,
@@ -203,14 +203,12 @@ def main():
     fig = plt.figure(figsize=args.figsize)
     observation_axes, scatter_axes, mcmc_axes, prediction_axes = create_axes(fig)
 
-    if not args.results_dir:
-        generate_data_and_fit(observation_axes[0], scatter_axes[0], mcmc_axes[0],
-                              prediction_axes[0], sampling_frequency=10,
-                              sigma=args.sigma)
-
-        generate_data_and_fit(observation_axes[1], scatter_axes[1], mcmc_axes[1],
-                              prediction_axes[1], sampling_frequency=100,
-                              sigma=args.sigma, dash=True)
+    generate_data_and_fit(observation_axes[0], scatter_axes[0], mcmc_axes[0],
+                          prediction_axes[0], sampling_frequency=10,
+                          sigma=args.sigma)
+    generate_data_and_fit(observation_axes[1], scatter_axes[1], mcmc_axes[1],
+                          prediction_axes[1], sampling_frequency=100,
+                          sigma=args.sigma, dash=True)
 
     for ax in scatter_axes + mcmc_axes:
         ax.set_ylim([.95, 2.25])
@@ -289,14 +287,13 @@ def generate_data_and_fit(observation_axes, scatter_ax, mcmc_ax, prediction_ax,
             rows.append(row)
 
             estimates_df = pd.concat(rows, ignore_index=True)
+            estimates_df.to_csv(os.path.join(output_dir, f"fitting_results_{sampling_frequency}.csv"))
 
     else:
         fitting_fname = os.path.join(args.results_dir, f"fitting_results_{sampling_frequency}.csv")
         estimates_df = pd.read_csv(fitting_fname)
     make_scatter_plots(estimates_df, scatter_ax, legend=True)
     make_prediction_plots(estimates_df, datasets, prediction_ax)
-
-    estimates_df.to_csv(os.path.join(output_dir, f"fitting_results_{sampling_frequency}.csv"))
 
     # Now use PINTS MCMC on the same problem
     Ts.append(np.array(all_T))
@@ -307,15 +304,15 @@ def generate_data_and_fit(observation_axes, scatter_ax, mcmc_ax, prediction_ax,
 
     if sampling_frequency <= 10:
         observation_axes[0].set_title(r'\textbf a', loc='left', x=offset)
-        scatter_ax.set_title(r'\textbf c', loc='left', x=offset)
+        scatter_ax.set_title(r'\textbf c', loc='left', x=offset*2)
         prediction_ax.set_title(r'\textbf g', loc='left', x=offset)
         mcmc_ax.set_title(r'\textbf e', loc='left', x=offset)
 
     else:
-        observation_axes[0].set_title(r'\textbf b', loc='left', x=offset)
-        scatter_ax.set_title(r'\textbf d', loc='left', x=offset)
-        prediction_ax.set_title(r'\textbf h', loc='left', x=offset)
-        mcmc_ax.set_title(r'\textbf f', loc='left', x=offset)
+        observation_axes[0].set_title(r'\textbf b', loc='left', x=1-offset)
+        scatter_ax.set_title(r'\textbf d', loc='left', x=1-offset*2)
+        prediction_ax.set_title(r'\textbf h', loc='left', x=1-offset)
+        mcmc_ax.set_title(r'\textbf f', loc='left', x=1-offset)
 
 
 def do_mcmc(datasets, observation_times, mcmc_ax, sampling_frequency,
@@ -382,7 +379,7 @@ def do_mcmc(datasets, observation_times, mcmc_ax, sampling_frequency,
         dfs = []
         for i, observation_times in enumerate(observation_times):
 
-            mcmc_fname = os.path.join(args.results_dir, "mcmc_chains_{i}_{sampling_frequency}.csv")
+            mcmc_fname = os.path.join(args.results_dir, f"mcmc_chains_{i}_{sampling_frequency}.npy")
             samples = np.load(mcmc_fname)
 
             sub_df = pd.DataFrame(samples.reshape([-1, 2]), columns=[r'$\theta_1$',
@@ -397,7 +394,7 @@ def do_mcmc(datasets, observation_times, mcmc_ax, sampling_frequency,
 
 def plot_mcmc_kde(mcmc_ax, df, fitting_df, palette):
     sns.kdeplot(data=df, x=r'$\theta_1$', y=r'$\theta_2$', palette=palette,
-                hue='observation times', levels=[.01, 0.999], ax=mcmc_ax,
+                hue='observation times', levels=[.01, 0.99], ax=mcmc_ax,
                 fill=True, legend=False)
 
     # for i, ts in enumerate(df['observation times'].unique()):
@@ -408,6 +405,32 @@ def plot_mcmc_kde(mcmc_ax, df, fitting_df, palette):
     #     mcmc_ax.scatter(x=[x], y=[y], color=palette[i], marker='+', lw=.3, s=5,
     #                     alpha=0.4)
 
+    text_locs = [
+        [.25, 1.25],
+        [.5, 1.4],
+        [.6, 1.5],
+        [1, 1.5],
+        [0.6, 2.2],
+    ]
+
+    for i, d in enumerate(fitting_df['observation times'].unique()):
+        print(fitting_df)
+        row = fitting_df[(fitting_df['time_range'] == d) & \
+                         (fitting_df['dataset_index'].astype(np.int) == 0)].head()
+
+        print(row)
+
+        x, y = row[[r"$\hat\theta_1$", r"$\hat\theta_2$"]].values.flatten()
+
+        print(x, y)
+
+        mcmc_ax.annotate(d, xy=(x, y), xytext=text_locs[i],
+                         textcoords='offset points',
+                         ha='center', va='bottom',
+                         bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),
+                         arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0.5',
+                                         color='red'))
+
     mcmc_ax.set_xlabel(r'$\theta_1$')
     mcmc_ax.set_ylabel(r'$\theta_2$')
 
@@ -417,7 +440,7 @@ def make_scatter_plots(df, ax, label='', legend=False):
 
     sns.scatterplot(data=df, x=df.columns[0],
                     y=df.columns[1], palette=palette,
-                    style='observation times', s=5,
+                    style='observation times', s=12.5,
                     hue='observation times', ax=ax)
 
 
