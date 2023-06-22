@@ -502,14 +502,14 @@ def fit_model(mm, data, times=None, starting_parameters=None,
             # rates function
             rates_func = mm.get_rates_func(njitted=False)
 
-            Vs = [-120, 60]
+            Vs = [-120, 40]
             rates_1 = rates_func(parameters, Vs[0])
             rates_2 = rates_func(parameters, Vs[1])
 
-            if max(rates_1.max(), rates_2.max()) > 1e4:
+            if max(rates_1.max(), rates_2.max()) > 1e7:
                 return False
 
-            if min(rates_1.min(), rates_2.min()) < 1e-8:
+            if min(rates_1.min(), rates_2.min()) < 1e-9:
                 return False
 
             if max([p for i, p in enumerate(parameters) if i != mm.GKr_index]) > 1e5:
@@ -542,9 +542,7 @@ def fit_model(mm, data, times=None, starting_parameters=None,
 
         def _sample_once(self, min_log_p, max_log_p):
             for i in range(1000):
-                p = np.empty(starting_parameters.shape)
-                max_current = data[subset_indices].max()
-                p[-1] = np.random.uniform(max_current, max_current*10, 1)
+                p = starting_parameters.copy()
                 p[:-1] = 10**np.random.uniform(min_log_p, max_log_p,
                                                starting_parameters[:-1].shape)
 
@@ -556,7 +554,7 @@ def fit_model(mm, data, times=None, starting_parameters=None,
                 if self.check(p):
                     return p
             logging.warning("Couldn't sample from boundaries")
-            return np.NaN
+            return starting_parameters.copy()
 
         def sample(self, n=1):
             min_log_p, max_log_p = [-7, 1]
@@ -633,6 +631,7 @@ def fit_model(mm, data, times=None, starting_parameters=None,
             boundaries = Boundaries(initial_guess, fix_parameters)
             params_not_fixed = initial_guess
 
+        print(params_not_fixed)
         controller = pints.OptimisationController(error, params_not_fixed,
                                                   boundaries=boundaries,
                                                   method=method,
