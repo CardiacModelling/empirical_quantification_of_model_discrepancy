@@ -245,9 +245,11 @@ def fit_func(model_class_name, dataset_index, fix_param, protocol):
                                                          method=args.method,
                                                          output_dir=fitting_output_dir,
                                                          return_fitting_df=True,
+                                                         no_conductance_boundary=True,
                                                          threshold=1e-6)
 
-        except ValueError:
+        except ValueError as e:
+            logging.warning(str(e))
             score = np.inf
 
         if score > min(pre_score1, pre_score2):
@@ -259,11 +261,13 @@ def fit_func(model_class_name, dataset_index, fix_param, protocol):
                                                          repeats=args.repeats,
                                                          randomise_initial_guess=False,
                                                          max_iterations=args.max_iterations,
+                                                         starting_parameters=default_guess,
                                                          solver=solver,
                                                          subset_indices=indices,
                                                          method=args.method,
                                                          output_dir=fitting_output_dir,
                                                          return_fitting_df=True,
+                                                         no_conductance_boundary=True,
                                                          threshold=1e-6)
 
             append_df = pd.DataFrame([[*true_params.copy(), pre_score2]],
