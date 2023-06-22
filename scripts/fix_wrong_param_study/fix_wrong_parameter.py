@@ -246,7 +246,8 @@ def fit_func(model_class_name, dataset_index, fix_param, protocol):
                                                          output_dir=fitting_output_dir,
                                                          return_fitting_df=True,
                                                          no_conductance_boundary=True,
-                                                         threshold=1e-6)
+                                                         threshold=1e-6,
+                                                         iterations_unchanged=100)
 
         except ValueError as e:
             logging.warning(str(e))
