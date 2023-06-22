@@ -33,7 +33,8 @@ def fit_func(protocol, well, model_class, default_parameters=None, E_rev=None,
                                   removal_duration=args.removal_duration,
                                   repeats=args.repeats,
                                   infer_E_rev=infer_E_rev,
-                                  experiment_name=args.experiment_name, E_rev=E_rev,
+                                  experiment_name=args.experiment_name,
+                                  E_rev=E_rev,
                                   randomise_initial_guess=randomise_initial_guess,
                                   solver_type=args.solver_type, sweep=sweep)
 
@@ -156,8 +157,8 @@ def main():
             tasks.append([protocol, well, model_class, starting_parameters, Erev,
                           not args.dont_randomise_initial_guess, prefix, sweep])
         else:
-            tasks.append([protocol, well, model_class, starting_parameters, Erev, prefix,
-                          not args.dont_randomise_initial_guess])
+            tasks.append([protocol, well, model_class, starting_parameters, Erev,
+                          not args.dont_randomise_initial_guess, prefix])
 
         protocols_list.append(protocol)
 
