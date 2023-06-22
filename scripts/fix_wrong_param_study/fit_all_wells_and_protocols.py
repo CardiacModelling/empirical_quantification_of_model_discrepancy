@@ -33,7 +33,8 @@ def fit_func(protocol, well, model_class, default_parameters=None, E_rev=None,
                                   removal_duration=args.removal_duration,
                                   repeats=args.repeats,
                                   infer_E_rev=infer_E_rev,
-                                  experiment_name=args.experiment_name, E_rev=E_rev,
+                                  experiment_name=args.experiment_name,
+                                  E_rev=E_rev,
                                   randomise_initial_guess=randomise_initial_guess,
                                   solver_type=args.solver_type, sweep=sweep)
 
@@ -67,7 +68,7 @@ def main():
     parser.add_argument('--use_parameter_file')
     parser.add_argument('--dont_refit', action='store_true')
     parser.add_argument('--dont_infer_Erev', action='store_true')
-    parser.add_argument('--solver_type', default='hybrid')
+    parser.add_argument('--solver_type')
     parser.add_argument('--selection_file')
     parser.add_argument('--ignore_protocols', nargs='+', default=[])
     parser.add_argument('--ignore_wells', nargs='+', default=[])
