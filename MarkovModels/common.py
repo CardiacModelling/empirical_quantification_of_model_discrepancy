@@ -527,10 +527,12 @@ def fit_model(mm, data, times=None, starting_parameters=None,
                                      / (voltages[subset_indices] - mm.E_rev))
 
             if not no_conductance_boundary:
-                if mm.GKr_index not in self.fix_parameters:
-                    if parameters[mm.GKr_index] > 100 * max_conductance or \
-                       parameters[mm.GKr_index] < 0.01 * max_conductance:
-                        return False
+                max_conductance = starting_parameters[mm.GKr_index] * 1000
+                min_conductance = starting_parameters[mm.GKr_index] * 1e-3
+                conductance = parameters[mm.GKr_index]
+                if conductance > max_conductance or conductance < min_conductance:
+                    return False
+
 
             # Finally, ensure that all parameters > 0
             return np.all(parameters > 0)
