@@ -400,7 +400,7 @@ def do_mcmc(datasets, observation_times, mcmc_ax, sampling_frequency,
 
 def plot_mcmc_kde(mcmc_ax, samples_list, df, fitting_df, palette, sampling_frequency):
     sns.kdeplot(data=df, x=r'$\theta_1$', y=r'$\theta_2$', palette=palette,
-                hue='observation times', levels=[.01, 0.99], ax=mcmc_ax,
+                hue='observation times', levels=[.01, 0.99999], ax=mcmc_ax,
                 fill=True, legend=False)
 
     # for i, ts in enumerate(df['observation times'].unique()):
