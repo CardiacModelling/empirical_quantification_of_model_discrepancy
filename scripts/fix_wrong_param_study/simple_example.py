@@ -18,15 +18,16 @@ rc('text', usetex=True)
 rc('figure', dpi=500)
 rc('axes', facecolor=[0]*4)
 
-plt.rcParams['legend.title_fontsize'] = '8'
+plt.rcParams['legend.title_fontsize'] = '0'
 plt.rcParams['legend.framealpha'] = 0
-plt.rcParams['legend.markerscale'] = .05
+plt.rcParams['legend.markerscale'] = 1
 
 def create_axes(fig):
     gs = GridSpec(5, 4, figure=fig,
                   height_ratios=[.5, .5, 1, 1, 1],
                   wspace=0.35,
                   hspace=.25,
+                  bottom=0.025,
                   top=0.97)
 
     # Setup plots of observation times
@@ -147,17 +148,16 @@ def fit_model(dataset, T, ax=None, label='', dataset_index=0):
     if ax:
         all_T = np.linspace(0, max(*T, 1.2), 100)
         ax.plot(all_T, discrepant_forward_model(result.x, all_T), '--',
-                lw=.75, color='black', label='fitted_model')
-        ax.plot(all_T, true_dgp(true_theta, all_T), label='true DGP', lw=.75,
-                color='grey')
+                lw=.5, color='grey', label='fitted_model', alpha=.8)
+        ax.plot(all_T, true_dgp(true_theta, all_T), label='true DGP', lw=.5,
+                color='black')
 
         ax.set_xlim(0, 1.3)
         ax.set_ylim(0, 2.25)
 
-        print(observed_dataset)
         if len(T) < 15:
             ax.scatter(*observed_dataset.T, color=palette[dataset_index],
-                       marker='x', s=5, zorder=2, lw=.3)
+                       marker='x', s=12.5, zorder=2, lw=.6)
         else:
             ax.plot(*observed_dataset.T, lw=0.5,
                     color=palette[dataset_index], alpha=.75)
@@ -309,7 +309,7 @@ def generate_data_and_fit(observation_axes, scatter_ax, mcmc_ax, prediction_ax,
         mcmc_ax.set_title(r'\textbf e', loc='left', x=offset)
 
     else:
-        observation_axes[0].set_title(r'\textbf b', loc='left', x=1-offset)
+        observation_axes[1].set_title(r'\textbf b', loc='left', x=1-offset)
         scatter_ax.set_title(r'\textbf d', loc='left', x=1-offset*2)
         prediction_ax.set_title(r'\textbf h', loc='left', x=1-offset)
         mcmc_ax.set_title(r'\textbf f', loc='left', x=1-offset)
@@ -352,6 +352,7 @@ def do_mcmc(datasets, observation_times, mcmc_ax, sampling_frequency,
         data_set = datasets[0]
 
         dfs = []
+        samples_list = []
         for i, observation_times in enumerate(observation_times):
             print('performing mcmc on dataset %d' % i)
             print(data_set)
@@ -359,10 +360,11 @@ def do_mcmc(datasets, observation_times, mcmc_ax, sampling_frequency,
                                                                 data_set, args.sigma**2), prior)
             mcmc = pints.MCMCController(posterior, args.no_chains,
                                         starting_parameters,
-                                        method=pints.HaarioBardenetACMC)
+                                        method=pints.MetropolisRandomWalkMCMC)
 
             mcmc.set_max_iterations(args.chain_length)
             samples = mcmc.run()[:, args.burn_in:, :]
+            samples_list.append(samples)
 
             np.save(os.path.join(output_dir, f"mcmc_chains_{i}_{sampling_frequency}.npy"),
                     samples)
@@ -377,10 +379,12 @@ def do_mcmc(datasets, observation_times, mcmc_ax, sampling_frequency,
     else:
 
         dfs = []
+        samples_list = []
         for i, observation_times in enumerate(observation_times):
 
             mcmc_fname = os.path.join(args.results_dir, f"mcmc_chains_{i}_{sampling_frequency}.npy")
             samples = np.load(mcmc_fname)
+            samples_list.append(samples)
 
             sub_df = pd.DataFrame(samples.reshape([-1, 2]), columns=[r'$\theta_1$',
                                                                      r'$\theta_2$'])
@@ -389,10 +393,12 @@ def do_mcmc(datasets, observation_times, mcmc_ax, sampling_frequency,
             dfs.append(sub_df)
 
     df = pd.concat(dfs, ignore_index=True)
-    plot_mcmc_kde(mcmc_ax, df, fitting_df, palette)
+
+    plot_mcmc_kde(mcmc_ax, samples_list, df, fitting_df, palette,
+                  sampling_frequency)
 
 
-def plot_mcmc_kde(mcmc_ax, df, fitting_df, palette):
+def plot_mcmc_kde(mcmc_ax, samples_list, df, fitting_df, palette, sampling_frequency):
     sns.kdeplot(data=df, x=r'$\theta_1$', y=r'$\theta_2$', palette=palette,
                 hue='observation times', levels=[.01, 0.99], ax=mcmc_ax,
                 fill=True, legend=False)
@@ -406,43 +412,46 @@ def plot_mcmc_kde(mcmc_ax, df, fitting_df, palette):
     #                     alpha=0.4)
 
     text_locs = [
-        [.25, 1.25],
-        [.5, 1.4],
-        [.6, 1.5],
-        [1, 1.5],
-        [0.6, 2.2],
+        [.25, 2.25],
+        [.35, 1.6],
+        [.75, 1.3],
+        [1.1, 1.2],
+        [0.7, 1.85],
     ]
 
     for i, d in enumerate(fitting_df['observation times'].unique()):
         print(fitting_df)
         row = fitting_df[(fitting_df['time_range'] == d) & \
-                         (fitting_df['dataset_index'].astype(np.int) == 0)].head()
+                         (fitting_df['dataset_index'].astype(int) == 0)].head()
 
         print(row)
 
         x, y = row[[r"$\hat\theta_1$", r"$\hat\theta_2$"]].values.flatten()
 
-        print(x, y)
-
         mcmc_ax.annotate(d, xy=(x, y), xytext=text_locs[i],
-                         textcoords='offset points',
+                         textcoords='data',
                          ha='center', va='bottom',
-                         bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),
-                         arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0.5',
-                                         color='red'))
+                         arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0.1',
+                                         color='black'))
 
     mcmc_ax.set_xlabel(r'$\theta_1$')
     mcmc_ax.set_ylabel(r'$\theta_2$')
+
+    for i, time_range in enumerate(df['observation times'].unique()):
+        samples = samples_list[i]
+        fig, _ = pints.plot.trace(samples, parameter_names=[r'$\theta_1$', r'$\theta_2$]'])
+        fig.savefig(os.path.join(output_dir, f"mcmc_trace_{time_range}_{sampling_frequency}.pdf"))
+        plt.close(fig)
 
 
 def make_scatter_plots(df, ax, label='', legend=False):
     df['observation times'] = df['time_range']
 
-    sns.scatterplot(data=df, x=df.columns[0],
-                    y=df.columns[1], palette=palette,
-                    style='observation times', s=12.5,
-                    hue='observation times', ax=ax)
+    g = sns.scatterplot(data=df, x=df.columns[0], y=df.columns[1],
+                        palette=palette, style='observation times', s=12.5,
+                        hue='observation times', ax=ax, edgecolor=None)
 
+    sns.move_legend(g, "best", title='', markerfirst=False)
 
 
 def make_prediction_plots(estimates, datasets, ax):
@@ -464,19 +473,21 @@ def make_prediction_plots(estimates, datasets, ax):
         prediction = discrepant_forward_model(params, T)
         predictions.append(prediction)
 
-        ax.plot(T, prediction, '--', color='red', lw=.5)
+        # ax.plot(T, prediction, '--', color='red', lw=.5)
 
     predictions = np.vstack(predictions)
     # colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
     # blue = colors[0]
-    ax.plot(T, true_dgp(true_theta, T), label='true DGP', lw=1, color='grey')
+    ax.plot(T, true_dgp(true_theta, T), label='true DGP', lw=.75, color='black')
+    for prediction in predictions:
+        ax.plot(T, prediction, '--', color='red', lw=.5)
     max_predict = np.max(predictions, axis=0)
     min_predict = np.min(predictions, axis=0)
 
     # ax.plot(T, min_predict, '--', color='red')
     # ax.plot(T, max_predict, '--', color='red')
 
-    ax.fill_between(T, min_predict, max_predict, color='grey', alpha=0.25)
+    ax.fill_between(T, min_predict, max_predict, color='grey', alpha=0.1)
 
     ax.set_xlabel(r'$t$')
     ax.set_ylabel(r'$y$', rotation=0)
