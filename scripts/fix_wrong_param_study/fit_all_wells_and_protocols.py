@@ -21,8 +21,12 @@ pool_kws = {'maxtasksperchild': 1}
 
 
 def fit_func(protocol, well, model_class, default_parameters=None, E_rev=None,
-             randomise_initial_guess=True, prefix='', sweep=None):
-    this_output_dir = os.path.join(output_dir, f"{prefix}{protocol}_{well}_sweep{sweep}")
+             randomise_initial_guess=True, prefix="", sweep=None):
+    if sweep:
+        this_output_dir = os.path.join(output_dir, f"{prefix}{protocol}_{well}_sweep{sweep}")
+    else:
+        this_output_dir = os.path.join(output_dir, f"{prefix}{protocol}_{well}")
+
 
     infer_E_rev = not args.dont_infer_Erev
 
@@ -151,7 +155,7 @@ def main():
             starting_parameters = None
 
         if args.dont_refit:
-            prefix = ''
+            prefix = ""
         else:
             prefix = 'prelim_'
 
@@ -160,8 +164,8 @@ def main():
             tasks.append([protocol, well, model_class, starting_parameters, Erev,
                           not args.dont_randomise_initial_guess, prefix, sweep])
         else:
-            tasks.append([protocol, well, model_class, starting_parameters, Erev, prefix,
-                          not args.dont_randomise_initial_guess])
+            tasks.append([protocol, well, model_class, starting_parameters,
+                          Erev, not args.dont_randomise_initial_guess, prefix])
 
         protocols_list.append(protocol)
 
@@ -220,7 +224,7 @@ def main():
         param_labels = model_class().get_parameter_labels()
         best_params = best_params_row[param_labels].astype(np.float64).values.flatten()
         task[3] = best_params
-        task[6] = ''
+        task[6] = ""
         task[5] = False
 
     if not args.dont_refit:
