@@ -25,8 +25,8 @@ def main():
     parser.add_argument('--E_rev', '-e', default=None)
     parser.add_argument('--cpus', '-c', default=1, type=int)
     parser.add_argument('--repeats', '-r', default=10, type=int)
-    parser.add_argument('--use_hybrid_solver', action='store_true')
-    parser.add_argument('--sampling_frequency', default=0.1, type=float)
+
+    parser.add_argument('--sampling_period', default=0.1, type=float)
 
     global args
     args = parser.parse_args()
@@ -55,30 +55,41 @@ def main():
         if args.protocols is None\
         else args.protocols
 
-    tasks = [(p, args.repeats, E_rev) for p in protocols]
+    tasks = [(p, args.repeats, model_class, E_rev, sigma, output_dir) for p in
+             protocols]
     with multiprocessing.Pool(args.cpus) as pool:
         pool.starmap(generate_data, tasks)
 
 
-def generate_data(protocol, no_repeats, E_rev):
+def generate_data(protocol, no_repeats, model_class, E_rev, sigma, output_dir,
+                  sampling_period=None, figsize=None, noise=None, prefix=None,
+                  plot=None, parameters=None):
+
+    if sampling_period is None:
+        sampling_period = args.sampling_period
+    if figsize is None:
+        figsize = args.figsize
+    if noise is None:
+        noise = args.noise
+    if prefix is None:
+        prefix = args.prefix
+    if plot is None:
+        plot = args.plot
 
     prot_func, _times, desc = common.get_ramp_protocol_from_csv(protocol)
     print('generating data')
 
-    no_samples = int((_times[-1] - _times[0]) / args.sampling_frequency) + 1
+    no_samples = int((_times[-1] - _times[0]) / sampling_period) + 1
 
-    times = np.linspace(_times[0], (no_samples - 1) * args.sampling_frequency,
+    times = np.linspace(_times[0], (no_samples - 1) * sampling_period,
                         no_samples)
 
     times_df = pd.DataFrame(times.T, columns=('time',))
-    times_df.to_csv(os.path.join(output_dir, f"{args.prefix}-{protocol}-times.csv"))
+    times_df.to_csv(os.path.join(output_dir, f"{prefix}-{protocol}-times.csv"))
     model = model_class(voltage=prot_func, times=times, E_rev=E_rev,
                         parameters=parameters, protocol_description=desc)
 
-    if args.use_hybrid_solver:
-        mean = model.make_hybrid_solver_current()()
-    else:
-        mean = model.make_forward_solver_current(njitted=True)()
+    mean = model.make_forward_solver_current(njitted=True)()
 
     if not np.all(np.isfinite(mean)):
         print('inf times', times[np.argwhere(~np.isfinite(mean))])
@@ -88,10 +99,10 @@ def generate_data(protocol, no_repeats, E_rev):
         data = np.random.normal(mean, sigma, times.shape)
 
         # Output data
-        out_fname = os.path.join(output_dir, f"{args.prefix}-{protocol}-{repeat}.csv")
+        out_fname = os.path.join(output_dir, f"{prefix}-{protocol}-{repeat}.csv")
         pd.DataFrame(data.T, columns=('current',)).to_csv(out_fname)
 
-        if args.plot:
+        if plot:
             fig = plt.figure(figsize=(14, 12))
             axs = fig.subplots(3)
             axs[0].plot(times, mean, label='mean')
