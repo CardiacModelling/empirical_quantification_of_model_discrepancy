@@ -68,7 +68,7 @@ def generate_data(protocol, no_repeats, model_class, E_rev, sigma, output_dir,
     if sampling_period is None:
         sampling_period = args.sampling_period
     if figsize is None:
-        figsize = args.figsize
+        figsize = (12, 10)
     if noise is None:
         noise = args.noise
     if prefix is None:
