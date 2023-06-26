@@ -42,7 +42,6 @@ def main():
 
     parser.add_argument('--max_iterations', '-i', type=int, default=100000)
     parser.add_argument('--repeats', type=int, default=16)
-    parser.add_argument('--removal_duration', '-r', default=5, type=float)
     parser.add_argument('--cores', '-c', default=1, type=int)
     parser.add_argument('--model', '-m', default='Beattie', type=str)
     parser.add_argument('--method', default='CMAES', type=str)
@@ -53,7 +52,7 @@ def main():
     parser.add_argument('--no_repeats', default=100, type=int)
     parser.add_argument('--no_parameter_steps', default=25, type=int)
     parser.add_argument('--fix_params', default=[], type=int, nargs='+')
-    parser.add_argument('--sampling_frequency', default=0.1, type=float)
+    parser.add_argument('--sampling_period', default=0.1, type=float)
 
     global args
     args = parser.parse_args()
@@ -173,10 +172,6 @@ def fit_func(model_class_name, dataset_index, fix_param, protocol):
     protocol_index = args.protocols.index(protocol)
     times, data = data_sets[protocol_index][int(dataset_index)]
 
-    no_samples = int((times[-1] - times[0]) / args.sampling_frequency) + 1
-    times = np.linspace(times[0], no_samples * args.sampling_frequency,
-                        no_samples)
-
     voltage_func, _, protocol_desc = common.get_ramp_protocol_from_csv(protocol)
 
     model_class = common.get_model_class(model_class_name)
@@ -197,28 +192,19 @@ def fit_func(model_class_name, dataset_index, fix_param, protocol):
                      E_rev=E_rev)
 
     voltages = np.array([voltage_func(t) for t in times])
-    _, spike_indices = common.detect_spikes(times, voltages, window_size=0)
-
-    intervals_to_remove = [(spike,
-                            int(spike + np.argmin(times[spike: ] > times[spike]
-                                                  + args.removal_duration)))
-                           for spike in spike_indices]
-
-    indices = common.remove_indices(list(range(len(times))),
-                                    intervals_to_remove)
 
     params = true_params.copy()
     solver = mm.make_forward_solver_current()
 
     def score_func(parameters):
         pred = solver(parameters)
-        return np.sum((pred - data)[indices]**2)
+        return np.sum((pred - data)**2)
 
     fit_fig = plt.figure(figsize=args.figsize)
     fit_ax = fit_fig.gca()
 
     res = []
-    for fix_param_val in param_vals:
+    for i, fix_param_val in enumerate(param_vals):
         default_guess = true_params.copy()
         default_guess[fix_param] = fix_param_val
 
@@ -233,21 +219,25 @@ def fit_func(model_class_name, dataset_index, fix_param, protocol):
             params = default_guess.copy()
 
         fitting_output_dir = os.path.join(sub_dir, f"{fix_param_val:.4e}")
+
+        randomise_initial_guess = False
+
+        repeats = 20 if i == 0 else args.repeats
+
         try:
             params, score, fitting_df = common.fit_model(mm, data,
                                                          fix_parameters=[fix_param],
-                                                         randomise_initial_guess=False,
-                                                         repeats=args.repeats,
+                                                         randomise_initial_guess=randomise_initial_guess,
+                                                         repeats=repeats,
                                                          max_iterations=args.max_iterations,
                                                          starting_parameters=params,
                                                          solver=solver,
-                                                         subset_indices=indices,
                                                          method=args.method,
                                                          output_dir=fitting_output_dir,
                                                          return_fitting_df=True,
                                                          no_conductance_boundary=True,
-                                                         threshold=1e-6,
-                                                         iterations_unchanged=100)
+                                                         threshold=1e-8
+                                                         )
 
         except ValueError as e:
             logging.warning(str(e))
@@ -255,28 +245,30 @@ def fit_func(model_class_name, dataset_index, fix_param, protocol):
 
         if score > min(pre_score1, pre_score2):
             logging.warning("Fitting resulting in worse score than default/previous parameters."
-                            + f"Refitting with initial parameters\n ({score}"
+                            + f"Refitting with random initial guesses\n ({score}"
                             + f" vs {min(pre_score1, pre_score2)})")
 
+            # repeats = 20
+            # randomise_initial_guess = True
+
             params, score, fitting_df = common.fit_model(mm, data, fix_parameters=[fix_param],
-                                                         repeats=args.repeats,
-                                                         randomise_initial_guess=False,
+                                                         repeats=repeats,
+                                                         randomise_initial_guess=randomise_initial_guess,
                                                          max_iterations=args.max_iterations,
                                                          starting_parameters=default_guess,
                                                          solver=solver,
-                                                         subset_indices=indices,
                                                          method=args.method,
                                                          output_dir=fitting_output_dir,
                                                          return_fitting_df=True,
                                                          no_conductance_boundary=True,
-                                                         threshold=1e-6)
+                                                         threshold=1e-8)
 
             append_df = pd.DataFrame([[*true_params.copy(), pre_score2]],
                                      columns=[*mm.get_parameter_labels(),
                                               'score'])
             fitting_df = pd.concat([fitting_df, append_df], ignore_index=True)
 
-        score = np.sqrt(score/len(indices))
+        score = np.sqrt(score / len(times))
         params[fix_param] = fix_param_val
 
         fit_ax.plot(times, data, color='grey')
@@ -300,7 +292,7 @@ def fit_func(model_class_name, dataset_index, fix_param, protocol):
 
 
 def generate_synthetic_data_sets(protocols, n_repeats, parameters=None,
-                                 noise=None, sampling_timestep=0.1,
+                                 noise=None,
                                  output_dir=None):
 
     if not noise:
@@ -310,8 +302,8 @@ def generate_synthetic_data_sets(protocols, n_repeats, parameters=None,
     for protocol in protocols:
         prot, _times, desc = common.get_ramp_protocol_from_csv(protocol)
 
-        no_samples = int((_times[-1] - _times[0]) / args.sampling_frequency) + 1
-        times = np.linspace(_times[0], (no_samples - 1) * args.sampling_frequency,
+        no_samples = int((_times[-1] - _times[0]) / args.sampling_period) + 1
+        times = np.linspace(_times[0], (no_samples - 1) * args.sampling_period,
                             no_samples)
 
         model_class = common.get_model_class(args.model)
@@ -322,6 +314,10 @@ def generate_synthetic_data_sets(protocols, n_repeats, parameters=None,
 
         data_sets = [(times, np.random.normal(mean, noise, times.shape)) for i in
                      range(n_repeats)]
+
+        for _, current in data_sets:
+            print('RMSE at true data is ',
+                  np.sqrt(np.mean((mean - current)**2)))
 
         if output_dir:
             fig = plt.figure(figsize=args.figsize)
@@ -368,38 +364,31 @@ def compute_predictions_df(params_df, model_class, datasets, datasets_df,
         fixed_param_label = param_labels[fix_param]
 
         for sim_protocol in protocols_list:
-            prot_func, times, desc = common.get_ramp_protocol_from_csv(sim_protocol)
+            prot_func, _, desc = common.get_ramp_protocol_from_csv(sim_protocol)
             protocol_index = datasets_df[datasets_df.protocol == sim_protocol]['protocol_index'].values[0]
-            full_times = datasets[protocol_index][0][0]
+            times = datasets[protocol_index][0][0]
 
             model = model_class(prot_func,
-                                times=full_times,
+                                times=times,
                                 E_rev=E_rev,
                                 protocol_description=desc)
 
-            voltages = np.array([prot_func(t) for t in full_times])
-
-            spike_times, spike_indices = common.detect_spikes(full_times, voltages,
-                                                            threshold=10)
-            _, _, indices = common.remove_spikes(full_times, voltages, spike_times,
-                                                time_to_remove=args.removal_duration)
-            times = full_times[indices]
+            voltages = np.array([prot_func(t) for t in times])
 
             if output_dir:
                 colours = sns.color_palette('husl', len(params_df['protocol'].unique()))
 
-            model.protocol_description = desc
             solver = model.make_forward_solver_current(njitted=True)
-            default_prediction = solver(true_params)[indices]
+            default_prediction = solver(true_params)
 
             for well in params_df['well'].unique():
                 full_data = datasets[protocol_index][int(well)][1]
-                data = full_data[indices]
+                data = full_data
 
                 for i, protocol_fitted in enumerate(params_df['protocol'].unique()):
 
                     all_models_axs[1].plot(full_times, voltages,
-                                        label=protocol_fitted, color=colours[i])
+                                           label=protocol_fitted, color=colours[i])
 
                     for val in params_df[fixed_param_label].unique():
                         df = params_df[(params_df.well == well) &
@@ -420,7 +409,7 @@ def compute_predictions_df(params_df, model_class, datasets, datasets_df,
                             except FileExistsError:
                                 pass
 
-                        prediction = solver(params)[indices]
+                        prediction = solver(params)
 
                         score = np.sqrt(np.mean((data - prediction)**2))
 
@@ -435,7 +424,8 @@ def compute_predictions_df(params_df, model_class, datasets, datasets_df,
                         elif output_dir:
                             # Output trace
                             trace_axs[0].plot(times, prediction, label='prediction')
-                            trace_axs[0].plot(times, solver(true_params)[indices], label='true DGP')
+                            trace_axs[0].plot(times, solver(true_params),
+                                              label='true DGP')
 
                             trace_axs[1].set_xlabel("time / ms")
                             trace_axs[0].set_ylabel("current / nA")
