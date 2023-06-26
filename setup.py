@@ -58,6 +58,7 @@ setup(
         'regex==2022.9.13',
         'myokit==1.33.0',
         'seaborn==0.12.0',
+        'openpyxl==3.1.2',
         'markov_builder @ git+https://git@github.com/CardiacModelling/Markov-builder@8193d0f10795119e032ee9e458e15f60318594f4',
         'scikit-build==0.16.7',
         'numbalsoda @ git+https://git@github.com/NicholasWogan/numbalsoda@c9183b5bc75002bac5270339f0e0ca645f102b4d'
