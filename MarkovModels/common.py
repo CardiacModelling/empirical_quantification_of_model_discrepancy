@@ -612,6 +612,9 @@ def fit_model(mm, data, times=None, starting_parameters=None,
 
     error = pints.SumOfSquaresError(problem)
 
+    print(f"error of initial guess is {error(starting_parameters)}")
+    print(f"RMSE is {np.sqrt(error(starting_parameters)/len(times))}")
+
     if fix_parameters is not None:
         unfixed_indices = [i for i in range(
             len(starting_parameters)) if i not in fix_parameters]
