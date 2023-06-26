@@ -502,7 +502,7 @@ def fit_model(mm, data, times=None, starting_parameters=None,
             # rates function
             rates_func = mm.get_rates_func(njitted=False)
 
-            Vs = [-120, 40]
+            Vs = [-120, 60]
             rates_1 = rates_func(parameters, Vs[0])
             rates_2 = rates_func(parameters, Vs[1])
 
