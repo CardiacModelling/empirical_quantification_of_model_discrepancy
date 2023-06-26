@@ -29,6 +29,8 @@ import matplotlib.lines as mlines
 
 from matplotlib import rc
 
+from generate_synthetic_data import generate_data
+
 rc('font', **{'family': 'serif', 'serif': ['Computer Modern'], 'size': 8})
 rc('text', usetex=True)
 rc('figure', dpi=1000, facecolor=[0]*4)
@@ -55,6 +57,9 @@ def main():
     parser.add_argument('--true_param_file')
     parser.add_argument('--fixed_param', default='Gkr')
     parser.add_argument('--prediction_protocol', default='longap')
+    parser.add_argument('--sampling_period', default=0.1, type=float)
+    parser.add_argument('--no_data_repeats', default=10, type=int)
+    parser.add_argument('--noise', default=0.03)
 
     parser.add_argument("--vlim", nargs=2, type=float)
 
@@ -79,6 +84,7 @@ def main():
     global true_parameters
     true_parameters = model_class().get_default_parameters()
 
+    global output_dir
     output_dir = common.setup_output_directory(args.output_dir, "CaseI_main")
 
     global fig
@@ -94,6 +100,8 @@ def main():
 
     global protocols
     protocols = sorted(results_df.protocol.unique())
+
+    global relabel_dict
     relabel_dict = {p: f"$d_{i+1}$" for i, p in enumerate([p for p in protocols if p not in args.ignore_protocols and p != 'longap'])}
 
     relabel_dict['longap'] = '$d_0$'
@@ -125,9 +133,10 @@ def main():
         prediction_df.validation_protocol.isin(relabel_dict.values())
 
     prediction_df = prediction_df[keep_rows]
+    generate_longap_data()
     plot_heatmaps(axes, prediction_df)
 
-    data = pd.read_csv(os.path.join(args.results_dir, f"synthetic_data_{args.prediction_protocol}_0.csv"))
+    data = pd.read_csv(os.path.join(output_dir, f'synthetic-longap-0.csv'))
 
     do_prediction_plots(axes, results_df, args.prediction_protocol, data)
 
@@ -136,15 +145,16 @@ def main():
 
 
 def do_prediction_plots(axes, results_df, prediction_protocol, data):
-    times = data['time / ms'].astype(np.float64).values
-    current = data['current / nA'].astype(np.float64).values
+    times = pd.read_csv(os.path.join(output_dir,
+                                          f'synthetic-longap-times.csv'))['time'].values.astype(np.float64)
+    current = data['current'].astype(np.float64).values
 
-    print(times, current)
+    # print(current)
 
     vals = sorted(results_df[args.fixed_param].unique())
 
     assert((len(vals) - 1) % 4 == 0)
-    v_step = len(vals) - 1 / 4
+    v_step = int((len(vals) - 1) / 4)
     vals = vals[::v_step]
 
     voltage_func, times, protocol_desc = common.get_ramp_protocol_from_csv(prediction_protocol)
@@ -165,7 +175,7 @@ def do_prediction_plots(axes, results_df, prediction_protocol, data):
     parameter_labels = model_class().get_parameter_labels()
 
     model = model_class(voltage_func, times, protocol_description=protocol_desc)
-    solver = model.make_forward_solver_current()
+    solver = model.make_forward_solver_current(njitted=False)
 
     colours = [palette[i] for i in range(len(protocols))]
 
@@ -186,7 +196,8 @@ def do_prediction_plots(axes, results_df, prediction_protocol, data):
 
             row = results_df[(results_df.protocol == training_protocol) &
                              (results_df[args.fixed_param] == val)]
-            parameters = row[parameter_labels].head(1).values.flatten()
+            print(row)
+            parameters = row[parameter_labels].head(1).values.flatten().astype(np.float64)
 
             prediction = solver(parameters)
             predictions.append(prediction)
@@ -293,12 +304,65 @@ def do_prediction_plots(axes, results_df, prediction_protocol, data):
 
 def plot_heatmaps(axes, prediction_df):
 
+    # Append longap results to prediction_df
+    fitting_df = pd.read_csv(os.path.join(args.results_dir, 'results_df.csv'))
+
+    df_rows = []
+
+    vals = sorted(prediction_df[args.fixed_param].unique())
+    vstep = int((len(vals) - 1) / 4)
+    vals = vals[::vstep]
+
+    parameter_labels = BeattieModel().get_parameter_labels()
+    prot_func, times, desc = common.get_ramp_protocol_from_csv('longap')
+    full_times = pd.read_csv(os.path.join(output_dir,
+                                          f'synthetic-longap-times.csv'))['time'].values.astype(np.float64)
+    model = BeattieModel(prot_func,
+                         times=full_times,
+                         protocol_description=desc)
+
+    prediction_solver = model.make_forward_solver_current(njitted=False)
+    for val in vals:
+        for protocol in fitting_df.protocol.unique():
+            for well in fitting_df.well.unique():
+                sub_df = fitting_df[
+                    (fitting_df.well == well) & \
+                    (fitting_df.protocol == protocol) & \
+                    (fitting_df[args.fixed_param] == val)
+                ]
+
+                len(sub_df.index == 1)
+                row = sub_df.head(1)
+                params = row[parameter_labels].values.flatten().astype(np.float64)
+
+                print(params)
+
+                # Predict longap protocol
+                prediction = prediction_solver(params)
+                # Compute RMSE
+                current = pd.read_csv(os.path.join(output_dir,
+                                                   f'synthetic-longap-{well}.csv'))['current'].values.astype(np.float64)
+                RMSE = np.sqrt(np.mean((prediction - current)**2))
+                RMSE_DGP = np.sqrt(np.mean((prediction - prediction_solver())**2))
+
+                new_row = pd.DataFrame([[well, args.fixed_param, protocol,
+                                         'longap', RMSE, RMSE_DGP, RMSE, *params]],
+                                       columns=(
+                                           'well', 'fixed_param', 'fitting_protocol',
+                                           'validation_protocol',
+                                           'score', 'RMSE_DGP', 'RMSE', *parameter_labels
+                                       ))
+                new_row.replace({'fitting_protocol': relabel_dict}, inplace=True)
+
+            df_rows.append(new_row)
+
+    prediction_df = pd.concat((prediction_df, *df_rows))
+
     colno = 2
     # Drop parameter sets fitted to 'longap', for example
 
     averaged_df = prediction_df.groupby([args.fixed_param, 'fitting_protocol', 'validation_protocol']).mean().reset_index()
 
-    vals = sorted(prediction_df[args.fixed_param].unique())
     print(args.fixed_param, vals)
 
     if args.vlim is None:
@@ -308,7 +372,7 @@ def plot_heatmaps(axes, prediction_df):
     # vmin = 10**-1.5
     # vmax = 10**0
 
-    assert(len(vals) == 5)
+    # assert(len(vals) == 5)
 
     # Get central column
     heatmap_axes = [axes[i] for i in range(len(axes)) if i > 2 and (i % 3) == colno]
@@ -485,12 +549,15 @@ def scatter_plots(axes, results_df, params=['p1', 'p2'], col=0):
 
     scatter_axes = [ax for i, ax in enumerate(axes) if (i % 3) == col and i > 2]
 
-    assert(len(scatter_axes) == 5)
+    # assert(len(scatter_axes) == 5)
 
     results_df = results_df.copy()
 
     vals = sorted(results_df[args.fixed_param].unique())
-    assert(len(vals) == len(scatter_axes))
+
+    assert((len(vals) - 1) % 4 == 0)
+
+    vals = vals[::int((len(vals)-1)/4)]
 
     val1 = true_parameters[0]
     val2 = true_parameters[1]
@@ -581,6 +648,16 @@ def scatter_plots(axes, results_df, params=['p1', 'p2'], col=0):
     xticks = [tick for tick in scatter_axes[-1].get_xticks()]
     scatter_axes[-1].set_xticks([0, .3])
     scatter_axes[-1].set_xticklabels([0, 0.3])
+
+
+def generate_longap_data():
+    generate_data('longap', args.no_data_repeats, BeattieModel,
+                  common.calculate_reversal_potential(T=298, K_in=120, K_out=5),
+                  args.noise,
+                  output_dir,
+                  noise=args.noise, figsize=args.figsize,
+                  sampling_period=args.sampling_period, plot=True,
+                  prefix='synthetic')
 
 if __name__ == "__main__":
     main()
