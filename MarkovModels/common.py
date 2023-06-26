@@ -98,13 +98,13 @@ def get_parser(data_reqd=False, description=None):
     return parser
 
 
-def calculate_reversal_potential(T=293, K_in=120, K_out=5):
+def calculate_reversal_potential(T=298, K_in=120, K_out=5):
     """
     Compute the Nernst potential of a potassium channel.
 
     """
     # E is the Nernst potential for potassium ions across the membrane
-    # Gas constant R, temperature T, Faradays constat F
+    # Gas constant R, temperature T, Faradays constant F
     R = 8.31455
     F = 96485
 
