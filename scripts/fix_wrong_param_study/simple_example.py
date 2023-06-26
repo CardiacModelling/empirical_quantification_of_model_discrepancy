@@ -20,14 +20,16 @@ rc('axes', facecolor=[0]*4)
 
 plt.rcParams['legend.title_fontsize'] = '0'
 plt.rcParams['legend.framealpha'] = 0
-plt.rcParams['legend.markerscale'] = 1
+plt.rcParams['legend.markerscale'] = .75
+
 
 def create_axes(fig):
     gs = GridSpec(5, 4, figure=fig,
-                  height_ratios=[.5, .5, 1, 1, 1],
+                  height_ratios=[.55, .55, 1, 1, 1],
                   wspace=0.35,
                   hspace=.25,
-                  bottom=0.025,
+                  bottom=0.07,
+                  right=0.95,
                   top=0.97)
 
     # Setup plots of observation times
@@ -54,16 +56,24 @@ def create_axes(fig):
                observation_time_axes[1][1],
                observation_time_axes[1][2],
                observation_time_axes[1][3]):
-        ax.set_yticks([])
+        ax.set_yticklabels([])
 
     for ax in (observation_time_axes[0][0],
                observation_time_axes[0][1],
                observation_time_axes[1][0],
                observation_time_axes[1][1]):
-        ax.set_xticks([])
+        ax.set_xticklabels([])
+
+    for axes in observation_time_axes:
+        for ax in axes:
+            ax.set_xticks([0, 1])
+
+            for side in ['top', 'right']:
+                ax.spines[side].set_visible(False)
+
     for ax in (observation_time_axes[0][2], observation_time_axes[0][3],
                observation_time_axes[1][2], observation_time_axes[1][3]):
-        ax.set_xlabel(r'$t$')
+        ax.set_xlabel(r'$t$', y=.25)
 
     prediction_plot_axs = [fig.add_subplot(gs[4, 0:2]),
                            fig.add_subplot(gs[4, 2:4])]
@@ -79,19 +89,23 @@ def create_axes(fig):
         for side in ['top', 'right']:
             ax.spines[side].set_visible(False)
 
-    scatter_axs[1].set_ylabel('')
-    scatter_axs[1].set_yticks([])
+    scatter_axs[1].set_xticklabels([])
+    scatter_axs[1].set_yticklabels([])
 
-    scatter_axs[0].set_xlabel('')
-    scatter_axs[0].set_xticks([])
+    scatter_axs[0].set_xlabel(r'$\hat\theta_1$', y=.25)
+    scatter_axs[1].set_xlabel(r'$\hat\theta_1$', y=.25)
+    scatter_axs[0].set_ylabel(r'$\hat\theta_2$')
+    scatter_axs[1].set_ylabel('')
+    scatter_axs[0].set_xticklabels([])
     scatter_axs[1].set_xlabel('')
-    scatter_axs[1].set_xticks([])
+    scatter_axs[1].set_xticklabels([])
 
     prediction_plot_axs[1].set_ylabel('')
-    prediction_plot_axs[1].set_yticks([])
+    prediction_plot_axs[1].set_yticklabels([])
 
     mcmc_axs[1].set_ylabel('')
-    mcmc_axs[1].set_yticks([])
+    mcmc_axs[0].set_ylabel(r'$\theta_2$')
+    mcmc_axs[1].set_yticklabels([])
 
     return observation_time_axes, scatter_axs, mcmc_axs, prediction_plot_axs
 
@@ -172,7 +186,7 @@ def main():
     argument_parser = argparse.ArgumentParser()
 
     argument_parser.add_argument('-o', '--output')
-    argument_parser.add_argument('--figsize', default=[4.685, 7.67], type=int,
+    argument_parser.add_argument('--figsize', default=[4.685, 5.9], type=int,
                                  nargs=2)
     argument_parser.add_argument('--no_datasets', default=10, type=int)
     argument_parser.add_argument('--sigma', default=0.01, type=float)
@@ -218,8 +232,11 @@ def main():
     page_ax.set_xticks([])
     page_ax.set_yticks([])
     page_ax.set_position([0, 0, 1, 1])
-    page_ax.axvline(0.5, ls='--', lw=.5, color='black')
+    page_ax.set_xlim([0, 1])
+    page_ax.axvline(0.525, ls='--', lw=.5, color='black')
     page_ax.axis('off')
+
+    prediction_axes[1].set_ylabel('')
 
     fig.savefig(os.path.join(output_dir, f"Fig1.{args.file_format}"))
 
@@ -292,7 +309,7 @@ def generate_data_and_fit(observation_axes, scatter_ax, mcmc_ax, prediction_ax,
     else:
         fitting_fname = os.path.join(args.results_dir, f"fitting_results_{sampling_frequency}.csv")
         estimates_df = pd.read_csv(fitting_fname)
-    make_scatter_plots(estimates_df, scatter_ax, legend=True)
+    make_scatter_plots(estimates_df, scatter_ax, sampling_frequency, legend=True)
     make_prediction_plots(estimates_df, datasets, prediction_ax)
 
     # Now use PINTS MCMC on the same problem
@@ -300,19 +317,22 @@ def generate_data_and_fit(observation_axes, scatter_ax, mcmc_ax, prediction_ax,
 
     do_mcmc(datasets, Ts, mcmc_ax, sampling_frequency, estimates_df)
 
-    offset = -0.05
-
     if sampling_frequency <= 10:
+        offset = -0.2
+        y_pos = .9
         observation_axes[0].set_title(r'\textbf a', loc='left', x=offset)
-        scatter_ax.set_title(r'\textbf c', loc='left', x=offset*2)
-        prediction_ax.set_title(r'\textbf g', loc='left', x=offset)
-        mcmc_ax.set_title(r'\textbf e', loc='left', x=offset)
+        scatter_ax.set_title(r'\textbf c', loc='left', x=offset, y=y_pos)
+        prediction_ax.set_title(r'\textbf g', loc='left', x=offset, y=y_pos)
+        mcmc_ax.set_title(r'\textbf e', loc='left', x=offset, y=y_pos)
 
     else:
-        observation_axes[1].set_title(r'\textbf b', loc='left', x=1-offset)
-        scatter_ax.set_title(r'\textbf d', loc='left', x=1-offset*2)
-        prediction_ax.set_title(r'\textbf h', loc='left', x=1-offset)
-        mcmc_ax.set_title(r'\textbf f', loc='left', x=1-offset)
+        offset = -0.075
+        y_pos = 0.97
+        observation_axes[0].set_title(r'\textbf b', loc='left', x=offset,
+                                       y=y_pos)
+        scatter_ax.set_title(r'\textbf d', loc='left', x=offset, y=y_pos)
+        prediction_ax.set_title(r'\textbf h', loc='left', x=offset, y=y_pos)
+        mcmc_ax.set_title(r'\textbf f', loc='left', x=offset, y=y_pos)
 
 
 def do_mcmc(datasets, observation_times, mcmc_ax, sampling_frequency,
@@ -360,7 +380,7 @@ def do_mcmc(datasets, observation_times, mcmc_ax, sampling_frequency,
                                                                 data_set, args.sigma**2), prior)
             mcmc = pints.MCMCController(posterior, args.no_chains,
                                         starting_parameters,
-                                        method=pints.MetropolisRandomWalkMCMC)
+                                        method=pints.HaarioBardenetACMC)
 
             mcmc.set_max_iterations(args.chain_length)
             samples = mcmc.run()[:, args.burn_in:, :]
@@ -400,7 +420,7 @@ def do_mcmc(datasets, observation_times, mcmc_ax, sampling_frequency,
 
 def plot_mcmc_kde(mcmc_ax, samples_list, df, fitting_df, palette, sampling_frequency):
     sns.kdeplot(data=df, x=r'$\theta_1$', y=r'$\theta_2$', palette=palette,
-                hue='observation times', levels=[.01, 0.99999], ax=mcmc_ax,
+                hue='observation times', levels=[.01, 0.9999], ax=mcmc_ax,
                 fill=True, legend=False)
 
     # for i, ts in enumerate(df['observation times'].unique()):
@@ -412,7 +432,7 @@ def plot_mcmc_kde(mcmc_ax, samples_list, df, fitting_df, palette, sampling_frequ
     #                     alpha=0.4)
 
     text_locs = [
-        [.25, 2.25],
+        [.25, 1.75],
         [.35, 1.6],
         [.75, 1.3],
         [1.1, 1.2],
@@ -434,22 +454,36 @@ def plot_mcmc_kde(mcmc_ax, samples_list, df, fitting_df, palette, sampling_frequ
                          arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0.1',
                                          color='black'))
 
-    mcmc_ax.set_xlabel(r'$\theta_1$')
-    mcmc_ax.set_ylabel(r'$\theta_2$')
+    mcmc_ax.set_xlabel(r'$\theta_1$', y=.5)
+    mcmc_ax.set_ylabel(r'$\theta_2$', y=5.5, x=0.05)
+
+    # tick_labels = mcmc_ax.get_xticklabels()
+
+    # for i in range(1, len(tick_labels)):
+    #     tick_labels[i] = ''
+
+    # mcmc_ax.set_xticklabels(tick_labels)
 
     for i, time_range in enumerate(df['observation times'].unique()):
         samples = samples_list[i]
-        fig, _ = pints.plot.trace(samples, parameter_names=[r'$\theta_1$', r'$\theta_2$]'])
+        fig, _ = pints.plot.trace(samples, parameter_names=[r'$\theta_1$', r'$\theta_2$'])
         fig.savefig(os.path.join(output_dir, f"mcmc_trace_{time_range}_{sampling_frequency}.pdf"))
         plt.close(fig)
 
 
-def make_scatter_plots(df, ax, label='', legend=False):
+def make_scatter_plots(df, ax, sampling_frequency, label='', legend=False):
     df['observation times'] = df['time_range']
 
-    g = sns.scatterplot(data=df, x=df.columns[0], y=df.columns[1],
+    x = df[r'$\hat\theta_1$']
+    y = df[r'$\hat\theta_2$']
+
+    g = sns.scatterplot(data=df, x=x, y=y,
                         palette=palette, style='observation times', s=12.5,
-                        hue='observation times', ax=ax, edgecolor=None)
+                        hue='observation times', ax=ax)
+
+    if sampling_frequency > 10:
+        g.set_ylabel('')
+    g.set_xlabel(r'$\hat\theta_1$', y=0.25)
 
     sns.move_legend(g, "best", title='', markerfirst=False)
 
