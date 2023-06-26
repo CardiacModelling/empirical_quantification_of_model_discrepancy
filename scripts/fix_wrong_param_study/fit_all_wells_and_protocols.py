@@ -27,9 +27,7 @@ def fit_func(protocol, well, model_class, default_parameters=None, E_rev=None,
     else:
         this_output_dir = os.path.join(output_dir, f"{prefix}{protocol}_{well}")
 
-
     infer_E_rev = not args.dont_infer_Erev
-
     res_df = common.fit_well_data(model_class, well, protocol,
                                   args.data_directory, args.max_iterations,
                                   output_dir=this_output_dir,
@@ -281,12 +279,6 @@ def compute_predictions_df(params_df, output_dir, label='predictions',
 
         voltages = np.array([prot_func(t) for t in full_times])
 
-        spike_times, spike_indices = common.detect_spikes(full_times, voltages,
-                                                          threshold=10)
-        _, _, indices = common.remove_spikes(full_times, voltages, spike_times,
-                                             time_to_remove=args.removal_duration)
-        times = full_times[indices]
-
         colours = sns.color_palette('husl', len(params_df['protocol'].unique()))
 
         for well in params_df['well'].unique():
@@ -310,7 +302,7 @@ def compute_predictions_df(params_df, output_dir, label='predictions',
                 # Probably not worth compiling solver
                 solver = model.make_forward_solver_of_type(args.solver_type, njitted=False)
 
-                data = full_data[indices]
+                data = full_data
 
                 for i, protocol_fitted in enumerate(params_df['protocol'].unique()):
                     print(protocol_fitted)
@@ -356,7 +348,7 @@ def compute_predictions_df(params_df, output_dir, label='predictions',
                             os.makedirs(sub_dir)
 
                         full_prediction = solver(params)
-                        prediction = full_prediction[indices]
+                        prediction = full_prediction
 
                         score = np.sqrt(np.mean((data - prediction)**2))
                         predictions_df.append((well, protocol_fitted,
