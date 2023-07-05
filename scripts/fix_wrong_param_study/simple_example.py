@@ -20,7 +20,7 @@ rc('axes', facecolor=[0]*4)
 
 plt.rcParams['legend.title_fontsize'] = '0'
 plt.rcParams['legend.framealpha'] = 0
-plt.rcParams['legend.markerscale'] = .75
+# plt.rcParams['legend.markerscale'] = 
 
 
 def create_axes(fig):
@@ -432,11 +432,11 @@ def plot_mcmc_kde(mcmc_ax, samples_list, df, fitting_df, palette, sampling_frequ
     #                     alpha=0.4)
 
     text_locs = [
-        [.25, 1.75],
-        [.35, 1.6],
+        [.225, 1.6],
+        [.41, 1.35],
         [.75, 1.3],
         [1.1, 1.2],
-        [0.7, 1.85],
+        [0.65, 1.9],
     ]
 
     for i, d in enumerate(fitting_df['observation times'].unique()):

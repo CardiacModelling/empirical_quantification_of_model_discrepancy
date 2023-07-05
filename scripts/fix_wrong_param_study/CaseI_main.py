@@ -30,6 +30,9 @@ import matplotlib.lines as mlines
 from matplotlib import rc
 
 from generate_synthetic_data import generate_data
+from CaseI_supplementary import make_table, do_prediction_error_plot
+from fix_wrong_parameter import compute_predictions_df
+
 
 rc('font', **{'family': 'serif', 'serif': ['Computer Modern'], 'size': 8})
 rc('text', usetex=True)
@@ -41,12 +44,18 @@ rc('savefig', facecolor=[0]*4)
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('results_dir')
-    parser.add_argument('--repeats', type=int, default=16)
+    parser.add_argument('--protocols',
+                        default=['staircaseramp1', 'sis',
+                                 'spacefill19', 'hhbrute3gstep',
+                                 'wangbrute3gstep'])
+
+    parser.add_argument('--no_repeats', type=int, default=10)
     parser.add_argument('--wells', '-w', type=str, default=[], nargs='+')
     parser.add_argument('--experiment_name', default='newtonrun4', type=str)
     parser.add_argument('--no_chains', '-N', default=0, help='mcmc chains to run', type=int)
     parser.add_argument('--chain_length', '-l', default=500, help='mcmc chains to run', type=int)
     parser.add_argument('--figsize', '-f', nargs=2, default=[4.685, 6.5])
+    parser.add_argument('--figsize2', nargs=2, default=[4.685, 2.5])
     parser.add_argument('--use_parameter_file')
     parser.add_argument('-i', '--ignore_protocols', nargs='+',
                         default=['longap'])
@@ -54,7 +63,6 @@ def main():
     parser.add_argument('-o', '--output_dir')
     parser.add_argument("-F", "--file_format", default='pdf')
     parser.add_argument("-m", "--model_class", default='Beattie')
-    parser.add_argument('--true_param_file')
     parser.add_argument('--fixed_param', default='Gkr')
     parser.add_argument('--prediction_protocol', default='longap')
     parser.add_argument('--sampling_period', default=0.1, type=float)
@@ -76,10 +84,10 @@ def main():
 
     model_class = common.get_model_class(args.model_class)
 
-    if args.true_param_file:
-        assert(False)
+    if args.use_parameter_file:
+        true_params = pd.read_csv(args.use_parameter_file, header=None).values[0,:].astype(np.float64)
     else:
-        parameter_labels = model_class().get_parameter_labels()
+        true_params = model_class().get_default_parameters()
 
     global true_parameters
     true_parameters = model_class().get_default_parameters()
@@ -112,6 +120,9 @@ def main():
 
     protocols = results_df.protocol.unique()
 
+    global parameter_labels
+    parameter_labels = model_class().get_parameter_labels()
+
     print(results_df)
     for param_label in parameter_labels:
         results_df[param_label] = results_df[param_label].astype(np.float64)
@@ -121,20 +132,46 @@ def main():
     # fig.tight_layout()
 
     # Plot heatmaps
-    prediction_df = pd.read_csv(os.path.join(args.results_dir, 'predictions.csv'))
-    prediction_df.replace({'fitting_protocol': relabel_dict,
-                           'validation_protocol': relabel_dict},
-                          inplace=True)
+    try:
+        # prediction_df = pd.read_csv(os.path.join(args.results_dir, 'predictions.csv'))
+        raise(FileNotFoundError)
+    except FileNotFoundError:
+
+        datasets_df = []
+        datasets = []
+        for protocol_index, protocol in enumerate(args.protocols):
+            this_protocol_datasets = []
+            for i in range(args.no_repeats):
+                datasets_df.append([protocol, protocol_index, i])
+                dataset = pd.read_csv(os.path.join(args.results_dir,
+                                                   f"synthetic_data_{protocol}_{i}.csv"))
+                dataset = dataset.astype(np.float64)
+                times = dataset['time / ms'].values.flatten()
+                current = dataset['current / nA'].values.flatten()
+
+                this_protocol_datasets.append((times, current))
+            datasets.append(this_protocol_datasets)
+        datasets_df = pd.DataFrame(datasets_df, columns=('protocol', 'protocol_index', 'repeat'))
+
+        prediction_df = compute_predictions_df(results_df, BeattieModel,
+                                               datasets, datasets_df, args,
+                                               fix_params=[8],
+                                               true_params=true_params.flatten().astype(np.float64))
+
+        prediction_df.replace({'fitting_protocol': relabel_dict,
+                               'validation_protocol': relabel_dict},
+                              inplace=True)
 
     for lab in parameter_labels:
         prediction_df[lab] = prediction_df[lab].astype(np.float64)
 
-    keep_rows = ~prediction_df.fitting_protocol.isin(args.ignore_protocols) &\
-        prediction_df.validation_protocol.isin(relabel_dict.values())
+    prediction_df = prediction_df[~prediction_df.fitting_protocol.isin(args.ignore_protocols) &\
+                                  prediction_df.validation_protocol.isin(relabel_dict.values())]
 
-    prediction_df = prediction_df[keep_rows]
     generate_longap_data()
-    plot_heatmaps(axes, prediction_df)
+
+    # Updates prediction_df to include longap data
+    prediction_df = plot_heatmaps(axes, prediction_df)
 
     data = pd.read_csv(os.path.join(output_dir, f'synthetic-longap-0.csv'))
 
@@ -142,6 +179,13 @@ def main():
 
     # gs.tight_layout(fig)
     fig.savefig(os.path.join(output_dir, f"Fig5.{args.file_format}"))
+
+    fig = plt.figure(figsize=args.figsize2)
+    ax = fig.subplots()
+    do_prediction_error_plot(ax, prediction_df, results_df, output_dir, args)
+    fig.savefig(os.path.join(output_dir, f"FigS1.{args.file_format}"))
+
+    make_table(results_df, args, output_dir)
 
 
 def do_prediction_plots(axes, results_df, prediction_protocol, data):
@@ -304,7 +348,6 @@ def do_prediction_plots(axes, results_df, prediction_protocol, data):
 
 def plot_heatmaps(axes, prediction_df):
 
-    # Append longap results to prediction_df
     fitting_df = pd.read_csv(os.path.join(args.results_dir, 'results_df.csv'))
 
     df_rows = []
@@ -331,7 +374,7 @@ def plot_heatmaps(axes, prediction_df):
                     (fitting_df[args.fixed_param] == val)
                 ]
 
-                len(sub_df.index == 1)
+                len(sub_df.index)
                 row = sub_df.head(1)
                 params = row[parameter_labels].values.flatten().astype(np.float64)
 
@@ -352,11 +395,14 @@ def plot_heatmaps(axes, prediction_df):
                                            'validation_protocol',
                                            'score', 'RMSE_DGP', 'RMSE', *parameter_labels
                                        ))
-                new_row.replace({'fitting_protocol': relabel_dict}, inplace=True)
+                # new_row.replace({'fitting_protocol': relabel_dict}, inplace=True)
 
             df_rows.append(new_row)
 
     prediction_df = pd.concat((prediction_df, *df_rows))
+    prediction_df.replace({'fitting_protocol': relabel_dict}, inplace=True)
+    prediction_df[[*parameter_labels, 'RMSE']] = prediction_df[[*parameter_labels,
+                                                                'RMSE']].astype(np.float64)
 
     colno = 2
     # Drop parameter sets fitted to 'longap', for example
@@ -385,6 +431,8 @@ def plot_heatmaps(axes, prediction_df):
         ax = heatmap_axes[i]
         sub_df = averaged_df[averaged_df[args.fixed_param] == vals[i]].copy()
         sub_df = sub_df[~sub_df.fitting_protocol.isin(['V', '$d_0$'])]
+
+        print(sub_df.columns)
 
         pivot_df = sub_df.pivot(columns='fitting_protocol',
                                 index='validation_protocol', values='RMSE')
@@ -460,6 +508,8 @@ def plot_heatmaps(axes, prediction_df):
 
     cax.xaxis.set_label_position('top')
     cax.set_xlabel(r'$\log_{10}$ RMSE')
+
+    return prediction_df
 
 
 def create_axes(fig):
