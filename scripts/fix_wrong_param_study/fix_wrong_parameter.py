@@ -154,8 +154,9 @@ def main():
     datasets_df = pd.DataFrame(datasets_df, columns=('protocol', 'protocol_index', 'repeat'))
 
     predictions_df = compute_predictions_df(res_df, model_class, data_sets,
-                                            datasets_df, args=args,
-                                            output_dir=output_dir)
+                                            datasets_df, args,
+                                            output_dir=output_dir,
+                                            true_params=true_params)
     predictions_df.to_csv(os.path.join(output_dir, 'predictions.csv'))
 
 
@@ -339,8 +340,13 @@ def generate_synthetic_data_sets(protocols, n_repeats, parameters=None,
     return list_of_data_sets
 
 
-def compute_predictions_df(params_df, model_class, datasets, datasets_df,
-                           label='predictions', args=None, output_dir=None):
+def compute_predictions_df(params_df, model_class, datasets, datasets_df, args,
+                           label='predictions', output_dir=None,
+                           fix_params=None, true_params=None):
+
+    if fix_params is None:
+        fix_params = args.fix_params
+
     if output_dir:
         predictions_dir = os.path.join(output_dir, label)
 
@@ -360,7 +366,7 @@ def compute_predictions_df(params_df, model_class, datasets, datasets_df,
 
     param_labels = model_class().get_parameter_labels()
 
-    for fix_param in args.fix_params:
+    for fix_param in fix_params:
         fixed_param_label = param_labels[fix_param]
 
         for sim_protocol in protocols_list:
@@ -387,8 +393,9 @@ def compute_predictions_df(params_df, model_class, datasets, datasets_df,
 
                 for i, protocol_fitted in enumerate(params_df['protocol'].unique()):
 
-                    all_models_axs[1].plot(full_times, voltages,
-                                           label=protocol_fitted, color=colours[i])
+                    if output_dir:
+                        all_models_axs[1].plot(times, voltages,
+                                               label=protocol_fitted, color=colours[i])
 
                     for val in params_df[fixed_param_label].unique():
                         df = params_df[(params_df.well == well) &
@@ -402,12 +409,13 @@ def compute_predictions_df(params_df, model_class, datasets, datasets_df,
                         assert(len(df.index) == 1)
                         params = df[param_labels].values.astype(np.float64).flatten()
 
-                        sub_dir = os.path.join(predictions_dir, f"param_{fix_param}", f"{well}_{sim_protocol}_predictions")
-                        if not os.path.exists(sub_dir):
-                            try:
-                                os.makedirs(sub_dir)
-                            except FileExistsError:
-                                pass
+                        if output_dir:
+                            sub_dir = os.path.join(predictions_dir, f"param_{fix_param}", f"{well}_{sim_protocol}_predictions")
+                            if not os.path.exists(sub_dir):
+                                try:
+                                    os.makedirs(sub_dir)
+                                except FileExistsError:
+                                    pass
 
                         prediction = solver(params)
 
@@ -431,7 +439,7 @@ def compute_predictions_df(params_df, model_class, datasets, datasets_df,
                             trace_axs[0].set_ylabel("current / nA")
                             trace_axs[0].plot(times, data, label='data', alpha=0.25, color='grey')
                             trace_axs[0].legend()
-                            trace_axs[1].plot(full_times, voltages)
+                            trace_axs[1].plot(times, voltages)
                             trace_axs[1].set_ylabel('voltage / mV')
                             fname = f"fitted_to_{protocol_fitted}_{val:.4f}.png" if protocol_fitted != sim_protocol else f"fit_{val:.4f}.png"
                             trace_fig.savefig(os.path.join(sub_dir, fname))
@@ -446,22 +454,25 @@ def compute_predictions_df(params_df, model_class, datasets, datasets_df,
                             for ax in trace_axs:
                                 ax.cla()
 
-                        all_models_axs[0].plot(times, prediction, label=protocol_fitted,
-                                               color=colours[i])
+                        if output_dir:
+                            all_models_axs[0].plot(times, prediction, label=protocol_fitted,
+                                                   color=colours[i])
 
-            all_models_fig.savefig(os.path.join(sub_dir, "all_predictions.png"))
+            if output_dir:
+                all_models_fig.savefig(os.path.join(sub_dir, "all_predictions.png"))
 
-            for ax in all_models_axs:
-                ax.cla()
+                for ax in all_models_axs:
+                    ax.cla()
 
-    # TODO refactor so this can work with more than one model
     predictions_df = pd.DataFrame(np.array(predictions_df), columns=['well', 'fixed_param', 'fitting_protocol',
                                                                       'validation_protocol',
                                                                       'score', 'RMSE_DGP'] + param_labels)
     predictions_df['RMSE'] = predictions_df['score']
+    print(predictions_df)
 
-    plt.close(trace_fig)
-    plt.close(all_models_fig)
+    if output_dir:
+        plt.close(trace_fig)
+        plt.close(all_models_fig)
 
     return predictions_df
 

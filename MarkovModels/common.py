@@ -786,7 +786,8 @@ def fit_well_data(model_class, well, protocol, data_directory, max_iterations,
                   repeats=1, infer_E_rev=False, fit_initial_conductance=True,
                   experiment_name='newtonrun4', solver=None, E_rev=None,
                   randomise_initial_guess=True, parallel=False,
-                  solver_type=None, sweep=None):
+                  solver_type=None, sweep=None, threshold=1e-11,
+                  iterations_unchanged=200):
 
     if default_parameters is None or len(default_parameters) == 0:
         default_parameters = model_class().get_default_parameters()
@@ -850,7 +851,9 @@ def fit_well_data(model_class, well, protocol, data_directory, max_iterations,
                                                  return_fitting_df=True,
                                                  repeats=repeats,
                                                  output_dir=output_dir,
-                                                 solver_type=solver_type)
+                                                 solver_type=solver_type,
+                                                 threshold=threshold,
+                                                 iterations_unchanged=iterations_unchanged)
 
     fig = plt.figure(figsize=(14, 12))
     for i, row in fitting_df.iterrows():
