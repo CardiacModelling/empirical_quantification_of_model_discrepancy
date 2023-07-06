@@ -21,16 +21,15 @@ pool_kws = {'maxtasksperchild': 1}
 
 
 def fit_func(protocol, well, model_class, default_parameters=None, E_rev=None,
-             randomise_initial_guess=True, prefix=""):
+             randomise_initial_guess=True, prefix="", repeats=1):
     this_output_dir = os.path.join(output_dir, f"{prefix}{protocol}_{well}")
 
-    infer_E_rev = not args.dont_infer_Erev
     res_df = common.fit_well_data(model_class, well, protocol,
                                   args.data_directory, args.max_iterations,
                                   output_dir=this_output_dir,
                                   default_parameters=default_parameters,
                                   removal_duration=args.removal_duration,
-                                  repeats=args.repeats,
+                                  repeats=repeats,
                                   infer_E_rev=infer_E_rev,
                                   experiment_name=args.experiment_name,
                                   E_rev=E_rev,
@@ -66,8 +65,6 @@ def main():
     parser.add_argument('--chain_length', '-l', default=500, type=int)
     parser.add_argument('--figsize', '-f', help='mcmc chains to run', type=int)
     parser.add_argument('--use_parameter_file')
-    parser.add_argument('--dont_refit', action='store_true')
-    parser.add_argument('--dont_infer_Erev', action='store_true')
     parser.add_argument('--solver_type')
     parser.add_argument('--selection_file')
     parser.add_argument('--ignore_protocols', nargs='+', default=[])
@@ -146,13 +143,10 @@ def main():
         else:
             starting_parameters = None
 
-        if args.dont_refit:
-            prefix = ""
-        else:
-            prefix = 'prelim_'
-
-        tasks.append([protocol, well, model_class, starting_parameters,
-                      Erev, not args.dont_randomise_initial_guess, prefix])
+        for i in range(args.repeats):
+            prefix = f"rep_{i}_"
+            tasks.append([protocol, well, model_class, starting_parameters,
+                          Erev, not args.dont_randomise_initial_guess, prefix])
 
         protocols_list.append(protocol)
 
@@ -175,18 +169,18 @@ def main():
     # wells_rep = [task[1] for task in tasks]
     # protocols_rep = [task[0] for task in tasks]
 
-    fitting_df.to_csv(os.path.join(output_dir, f"{prefix}fitting.csv"))
+    fitting_df.to_csv(os.path.join(output_dir, f"fitting.csv"))
 
     params_df = get_best_params(fitting_df)
-    params_df.to_csv(os.path.join(output_dir, f"{prefix}best_fitting.csv"))
+    params_df.to_csv(os.path.join(output_dir, f"best_fitting.csv"))
 
     print(params_df)
     predictions_df = compute_predictions_df(params_df, output_dir,
-                                            f"{prefix}predictions", args=args,
+                                            f"predictions", args=args,
                                             model_class=model_class)
 
     # Plot predictions
-    predictions_df.to_csv(os.path.join(output_dir, f"{prefix}predictions_df.csv"))
+    predictions_df.to_csv(os.path.join(output_dir, f"predictions_df.csv"))
 
     # Select best parameters for each protocol
     best_params_df_rows = []
@@ -201,37 +195,6 @@ def main():
 
     best_params_df = pd.concat(best_params_df_rows, ignore_index=True)
     print(best_params_df)
-
-    for task in tasks:
-        protocol, well, model_class, default_parameters, Erev, randomise, _ = task
-        best_params_row = best_params_df[(best_params_df.well == well)
-                                         & (best_params_df.validation_protocol == protocol)].head(1)
-        param_labels = model_class().get_parameter_labels()
-        best_params = best_params_row[param_labels].astype(np.float64).values.flatten()
-        task[3] = best_params
-        task[6] = ""
-        task[5] = False
-
-    if not args.dont_refit:
-        with multiprocessing.Pool(pool_size, **pool_kws) as pool:
-            res = pool.starmap(fit_func, tasks)
-
-            fitting_df = pd.concat(res + [fitting_df], ignore_index=True)
-            fitting_df.to_csv(os.path.join(output_dir, "fitting.csv"))
-
-            predictions_df = compute_predictions_df(params_df, output_dir,
-                                                    model_class=model_class,
-                                                    args=args)
-
-            predictions_df.to_csv(os.path.join(output_dir, "predictions_df.csv"))
-
-            best_params_df = get_best_params(predictions_df,
-                                             protocol_label='validation_protocol',
-                                             sweep_label='prediction_sweep')
-            print(best_params_df)
-
-            best_params_df['protocol'] = best_params_df['validation_protocol']
-            best_params_df.to_csv(os.path.join(output_dir, 'best_fitting.csv'))
 
 
 def compute_predictions_df(params_df, output_dir, label='predictions',
