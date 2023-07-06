@@ -212,7 +212,9 @@ def compute_predictions_df(params_df, output_dir, label='predictions',
         os.makedirs(predictions_dir)
 
     predictions_df = []
-    protocols_list = params_df['protocol'].unique()
+    protocols_list = list(params_df['protocol'].unique())
+    if 'longap' not in protocols_list:
+        protocols_list.append('longap')
 
     trace_fig = plt.figure(figsize=args.figsize)
     trace_axs = trace_fig.subplots(2)
