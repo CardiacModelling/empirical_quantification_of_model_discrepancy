@@ -24,19 +24,26 @@ def fit_func(protocol, well, model_class, default_parameters=None, E_rev=None,
              randomise_initial_guess=True, prefix="", repeats=1):
     this_output_dir = os.path.join(output_dir, f"{prefix}{protocol}_{well}")
 
-    res_df = common.fit_well_data(model_class, well, protocol,
-                                  args.data_directory, args.max_iterations,
-                                  output_dir=this_output_dir,
-                                  default_parameters=default_parameters,
-                                  removal_duration=args.removal_duration,
-                                  repeats=repeats,
-                                  infer_E_rev=False,
-                                  experiment_name=args.experiment_name,
-                                  E_rev=E_rev,
-                                  randomise_initial_guess=randomise_initial_guess,
-                                  solver_type=args.solver_type,
-                                  threshold=1e-8,
-                                  )
+    try:
+        res_df = common.fit_well_data(model_class, well, protocol,
+                                      args.data_directory, args.max_iterations,
+                                      output_dir=this_output_dir,
+                                      default_parameters=default_parameters,
+                                      removal_duration=args.removal_duration,
+                                      repeats=repeats,
+                                      infer_E_rev=False,
+                                      experiment_name=args.experiment_name,
+                                      E_rev=E_rev,
+                                      randomise_initial_guess=randomise_initial_guess,
+                                      solver_type=args.solver_type,
+                                      threshold=1e-8,
+                                      )
+    except Exception:
+        res_df = pd.DataFrame(np.full((1, len(model_class().get_default_parameters())), np.nan),
+                                       columns=model_class().get_parameter_labels())
+        res_df['iterations'] = 0
+        res_df['CPU_time'] = 0
+        res_df['score'] = np.nan
 
     res_df['well'] = well
     res_df['protocol'] = protocol
@@ -347,7 +354,6 @@ def compute_predictions_df(params_df, output_dir, label='predictions',
 
 
 def get_best_params(fitting_df, protocol_label='protocol', sweep_label='sweep'):
-    best_params = []
 
     # Ensure score is a float - may be read from csv file
     fitting_df['score'] = fitting_df['score'].astype(np.float64)
@@ -358,6 +364,9 @@ def get_best_params(fitting_df, protocol_label='protocol', sweep_label='sweep'):
     else:
         fitting_df['sweep'] = -1
 
+    print(fitting_df)
+
+    best_params = []
     for protocol in fitting_df[protocol_label].unique():
         for well in fitting_df['well'].unique():
             for sweep in fitting_df[sweep_label].unique():
