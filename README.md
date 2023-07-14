@@ -1,7 +1,7 @@
-# Empirical quantification of predictive uncertainty due to model discrepancy by training with an ensemble of experimental designs: an application to hERG kinetics
-This repository contains the code necessary to reproduce the figures presented in our publication: _Empirical quantification of predictive uncertainty due to model discrepancy by training with an ensemble of experimental designs: an application to hERG kinetic_, Joseph G. Shuttleworth, Chon Lok Lei, Dominic G. Whittaker, Simon P. Preston and Gary R. Mirams.
+# Empirical quantification of predictive uncertainty due to model discrepancy by training with an ensemble of experimental designs: an application to ion channel kinetics
+This repository contains the code necessary to reproduce the figures presented in our publication: _Empirical quantification of predictive uncertainty due to model discrepancy by training with an ensemble of experimental designs: an application to ion channel kinetics_, Joseph G. Shuttleworth, Chon Lok Lei, Dominic G. Whittaker, Simon P. Preston and Gary R. Mirams.
 
-This repository consists of package for the processing and analysis of patch-clamp electrophysiology data. Some of this functionality is used in the paper. The code ran to produce our Figures are the `scripts` directory, and the corresponding output is provided in the `output` directory.
+This repository consists of package for the processing and analysis of patch-clamp electrophysiology data. Some of this functionality is used in the paper. The code ran to produce our figures are the `scripts` directory, and the corresponding output is provided in the `output` directory.
 
 ## Installation
 
