@@ -11,6 +11,7 @@ It should work with Python versions >= 3.6 and < 3.10. It is recommended to inst
 - Install [graphviz](https://graphviz.org/). On Ubuntu, this is done by running `sudo apt install graphviz graphviz-dev`. 
 - Install gcc and build essential: `sudo apt-get install gcc build-essential`
 - Install cmake: `sudo apt-get install cmake`
+- Install LaTeX (for plots): `sudo apt install texlive texlive-latex-extra texlive-fonts-recommended cm-super dvipng`
 - Install scikit-build: `pip install scikit-build`
 - Install the MarkovModels package by running `pip install -e .`.
 
