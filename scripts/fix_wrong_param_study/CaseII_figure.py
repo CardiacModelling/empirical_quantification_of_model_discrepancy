@@ -30,8 +30,6 @@ import matplotlib.lines as mlines
 
 from matplotlib import rc
 
-from generate_synthetic_data import generate_data
-
 from fit_all_wells_and_protocols import compute_predictions_df
 
 
@@ -120,8 +118,6 @@ def main():
     global palette
     palette = sns.color_palette('husl', len(results_df.protocol.unique()))
 
-    generate_longap_data()
-
     # plot scatter_plots
     scatter_plots(axes, results_dfs)
     # fig.tight_layout()
@@ -148,7 +144,7 @@ def main():
                                               "predictions_df.csv"))
 
             prot_func, times, desc = common.get_ramp_protocol_from_csv('longap')
-            full_times = pd.read_csv(os.path.join(output_dir,
+            full_times = pd.read_csv(os.path.join(args.data_dir,
                                                   f'synthetic-longap-times.csv'))['time'].values.astype(np.float64)
             model = model_class(prot_func,
                                 times=full_times,
@@ -173,7 +169,7 @@ def main():
                     # Predict longap protocol
                     prediction = prediction_solver(params)
                     # Compute RMSE
-                    current = pd.read_csv(os.path.join(output_dir,
+                    current = pd.read_csv(os.path.join(args.data_dir,
                                                     f'synthetic-longap-{well}.csv'))['current'].values.astype(np.float64)
                     RMSE = np.sqrt(np.mean((prediction - current)**2))
                     RMSE_DGP = np.sqrt(np.mean((prediction - prediction_solver())**2))
@@ -202,9 +198,9 @@ def main():
 
     plot_heatmaps(axes, prediction_dfs)
 
-    current = pd.read_csv(os.path.join(output_dir,
+    current = pd.read_csv(os.path.join(args.data_dir,
                                                f"synthetic-{args.prediction_protocol}-1.csv"))['current'].values.flatten().astype(np.float64)
-    times = pd.read_csv(os.path.join(output_dir,
+    times = pd.read_csv(os.path.join(args.data_dir,
                                             f"synthetic-{args.prediction_protocol}-times.csv"))['time'].values.flatten().astype(np.float64)
     do_prediction_plots(axes, results_dfs, args.prediction_protocol, current, times)
 
@@ -216,7 +212,7 @@ def main():
 def make_table(dfs, protocol):
 
     prot_func, times, desc = common.get_ramp_protocol_from_csv('longap')
-    full_times = pd.read_csv(os.path.join(output_dir,
+    full_times = pd.read_csv(os.path.join(args.data_dir,
                                           f'synthetic-longap-times.csv'))['time'].values.astype(np.float64)
     dgp_model = WangModel(prot_func,
                           times=full_times,
@@ -265,7 +261,7 @@ def make_table(dfs, protocol):
 
                 predictions.append(prediction)
                 # Compute RMSE
-                current = pd.read_csv(os.path.join(output_dir,
+                current = pd.read_csv(os.path.join(args.data_dir,
                                                 f'synthetic-longap-{well}.csv'))['current'].values.astype(np.float64)
                 RMSE = np.sqrt(np.mean((prediction - current)**2))
                 RMSE_DGP = np.sqrt(np.mean((prediction - default_prediction)**2))
@@ -376,13 +372,13 @@ def make_table(dfs, protocol):
     agg_dict = {}
     agg_dict['average_interval_width'] = ['mean', 'std']
     agg_dict['points_in_interval_DGP'] = ['mean', 'std']
+    combined_df = combined_df.groupby(['model_class'], as_index=True).agg(agg_dict)
     combined_df.to_csv(os.path.join(output_dir, f"{model_class_name}_table.csv"))
 
-    print(combined_df)
     s = combined_df.style.format("{:.1E}".format)
 
     ltx_output = s.to_latex(sparse_columns=True, multicol_align="c" )
-    output_fname = os.path.join(output_dir, f"CaseII_table1_.tex")
+    output_fname = os.path.join(output_dir, f"CaseII_table1.tex")
     with open(output_fname, 'w') as fout:
         fout.write(ltx_output)
 
@@ -558,7 +554,9 @@ def plot_heatmaps(axes, prediction_dfs):
 
     cmap = sns.cm.mako_r
 
-    joint_df = pd.concat(prediction_dfs, ignore_index=True)
+    joint_df = pd.concat(prediction_dfs, ignore_index=True).copy()
+
+    joint_df['RMSE'] = joint_df['RMSE'].astype(np.float64)
     averaged_df = joint_df.groupby(['fitting_protocol', 'validation_protocol',
                                     'model'])['RMSE'].mean().reset_index()
 
@@ -668,8 +666,9 @@ def create_axes(fig):
                   width_ratios=[.05, 1, 1, 1], wspace=.55,
                   right=.95,
                   left=.11,
-                  # hspace=.5,
+                  hspace=.5,
                   bottom=0.1,
+                  top=.85,
                   figure=fig)
 
     bottom_axes = [fig.add_subplot(gs[2, i]) for i in range(ncols) if i % 4 != 0]
@@ -690,10 +689,10 @@ def create_axes(fig):
     for ax in axes:
         ax.set_rasterization_zorder(2)
 
-    axes[3].set_title(r'\textbf{a}', loc='left', y=1.2)
+    axes[3].set_title(r'\textbf{a}', loc='left')
     axes[1].set_title(r'\textbf{b}', loc='left')
-    axes[5].set_title(r'\textbf{d}', loc='left')
-    axes[4].set_title(r'\textbf{c}', loc='left', y=1.2)
+    axes[5].set_title(r'\textbf{d}', x=-0.2, loc='left')
+    axes[4].set_title(r'\textbf{c}', loc='left')
 
     # move entire first row up
     for i, ax in enumerate(axes[:3]):
@@ -750,12 +749,9 @@ def scatter_plots(axes, results_dfs, params=['p1', 'p2'], col=0):
     ylims = [0.95 * min(gkrs), 1.05 * max(gkrs)]
     models = ['Beattie', 'Wang']
     for i, _ in enumerate(results_dfs):
-        print(results_dfs[i].columns)
         results_dfs[i]['model'] = models[i]
 
     print(palette)
-
-    print(results_dfs[0].protocol)
 
     markers = ['1', '2', '3', '4', '+', 'x']
     # markers = [markers[i] for i in range(len(results_dfs[0].protocol.unique()))]
@@ -814,7 +810,6 @@ def scatter_plots(axes, results_dfs, params=['p1', 'p2'], col=0):
 def get_best_params(fitting_df, protocol_label='protocol'):
     best_params = []
 
-    print(fitting_df)
     fitting_df['score'] = fitting_df['score'].astype(np.float64)
     fitting_df = fitting_df[np.isfinite(fitting_df['score'])].copy()
 
@@ -829,17 +824,6 @@ def get_best_params(fitting_df, protocol_label='protocol'):
             best_params.append(sub_df[sub_df.score == sub_df.score.min()].head(1).copy())
 
     return pd.concat(best_params, ignore_index=True)
-
-
-def generate_longap_data():
-    generate_data('longap', args.no_data_repeats, BeattieModel,
-                  common.calculate_reversal_potential(T=298, K_in=120, K_out=5),
-                  args.noise,
-                  output_dir,
-                  noise=args.noise, figsize=args.figsize,
-                  sampling_period=args.sampling_period, plot=True,
-                  prefix='synthetic')
-
 
 if __name__ == "__main__":
     main()

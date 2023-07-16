@@ -45,7 +45,7 @@ def main():
     parser.add_argument('--experiment_name', default='newtonrun4', type=str)
     parser.add_argument('--no_chains', '-N', default=0, help='mcmc chains to run', type=int)
     parser.add_argument('--chain_length', '-l', default=500, help='mcmc chains to run', type=int)
-    parser.add_argument('--figsize', '-f', nargs=2, default=[4.685, 6.5])
+    parser.add_argument('--figsize', '-f', nargs=2, default=[4.685, 4.5])
     parser.add_argument('--use_parameter_file')
     parser.add_argument('-i', '--ignore_protocols', nargs='+',
                         default=['longap'])
@@ -262,7 +262,7 @@ def do_prediction_plots(axes, results_dfs, prediction_protocol, current, times):
     prediction_axes[1].set_xticks([0, 7500])
     prediction_axes[1].set_xticklabels(labels)
 
-    prediction_axes[-1].set_visible(False)
+    # prediction_axes[-1].set_visible(False)
 
     axes[colno].set_yticks([-100, 40])
     axes[colno].set_ylabel(r'$V$ (mV)')
@@ -271,10 +271,11 @@ def do_prediction_plots(axes, results_dfs, prediction_protocol, current, times):
 
 def create_axes(fig):
     global gs
-    nrows = 5
+    nrows = 4
     ncols = 1
 
-    gs = GridSpec(nrows, ncols, height_ratios=[0.15, 0.3, 1, 1, 1],
+    gs = GridSpec(nrows, ncols, height_ratios=[0.15, 0.3, 1, 1],
+                  top=1.05,
                   figure=fig)
 
     axes = [fig.add_subplot(cell) for cell in gs]
@@ -282,7 +283,7 @@ def create_axes(fig):
     axes[1].set_title(r'\textbf{a}', loc='left')
     axes[2].set_title(r'\textbf{b}', loc='left')
     axes[3].set_title(r'\textbf{c}', loc='left')
-    axes[4].set_title(r'\textbf{d}', loc='left')
+    # axes[4].set_title(r'\textbf{d}', loc='left')
 
     # Put legend on the top left axis
     ax = axes[0]

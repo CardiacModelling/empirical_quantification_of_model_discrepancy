@@ -39,6 +39,7 @@ rc('savefig', facecolor=[0]*4)
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('results_dir')
+    parser.add_argument('results_dir2')
     parser.add_argument('--repeats', type=int, default=16)
     parser.add_argument('--wells', '-w', type=str, default=[], nargs='+')
     parser.add_argument('--experiment_name', default='newtonrun4', type=str)
@@ -115,22 +116,8 @@ def main():
     for param_label in parameter_labels:
         results_df[param_label] = results_df[param_label].astype(np.float64)
 
-    # Plot heatmaps
-    prediction_df = pd.read_csv(os.path.join(args.results_dir, 'predictions.csv'))
-    prediction_df.replace({'fitting_protocol': relabel_dict,
-                           'validation_protocol': relabel_dict},
-                          inplace=True)
-
-    for lab in parameter_labels:
-        prediction_df[lab] = prediction_df[lab].astype(np.float64)
-
-    keep_rows = ~prediction_df.fitting_protocol.isin(args.ignore_protocols) &\
-        prediction_df.validation_protocol.isin(relabel_dict.values())
-
-    prediction_df = prediction_df[keep_rows]
-
-    data = pd.read_csv(os.path.join(args.results_dir,
-                                    f"synthetic_data_{args.prediction_protocol}_0.csv"))
+    data = pd.read_csv(os.path.join(args.results_dir2,
+                                    f"synthetic-{args.prediction_protocol}-0.csv"))
 
     do_prediction_plots(axes, results_df, args.prediction_protocol, data)
     axes[1].set_title(r'\textbf{a}', loc='left')
@@ -138,15 +125,16 @@ def main():
     axes[3].set_title(r'\textbf{c}', loc='left')
     axes[4].set_title(r'\textbf{d}', loc='left')
 
-
     fig.savefig(os.path.join(output_dir, f"Fig4.{args.file_format}"))
 
 
 def do_prediction_plots(axes, results_df, prediction_protocol, data):
-    times = data['time / ms'].astype(np.float64).values
-    current = data['current / nA'].astype(np.float64).values
-
-    print(times, current)
+    # times = data['time / ms'].astype(np.float64).values
+    times = pd.read_csv(os.path.join(args.results_dir2,
+                                     "synthetic-longap-0.csv"))
+    times = pd.read_csv(os.path.join(args.results_dir2,
+                                     "synthetic-longap-times.csv"))['time'].values.astype(np.float64)
+    current = data['current'].astype(np.float64).values
 
     vals = sorted(results_df[args.fixed_param].unique())[::2]
 

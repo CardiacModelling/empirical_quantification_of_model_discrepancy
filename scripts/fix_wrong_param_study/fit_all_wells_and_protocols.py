@@ -230,7 +230,7 @@ def compute_predictions_df(params_df, output_dir, label='predictions',
     all_models_axs = all_models_fig.subplots(2)
 
     for sim_protocol in protocols_list:
-        prot_func, times, desc = common.get_ramp_protocol_from_csv(sim_protocol)
+        prot_func, _, desc = common.get_ramp_protocol_from_csv(sim_protocol)
 
         full_times = pd.read_csv(os.path.join(args.data_directory,
                                               f"{args.experiment_name}-{sim_protocol}-times.csv"))['time'].values.flatten()
@@ -264,11 +264,7 @@ def compute_predictions_df(params_df, output_dir, label='predictions',
                 df = params_df[params_df.well == well].copy()
                 df = df[df.protocol == protocol_fitted]
                 if df.empty:
-                    print(protocol_fitted, well)
-                    print(params_df)
                     continue
-
-                print(df)
 
                 params = df.iloc[0][param_labels].values\
                                                     .astype(np.float64)\
@@ -305,7 +301,7 @@ def compute_predictions_df(params_df, output_dir, label='predictions',
 
                     trace_axs[1].set_xlabel("time / ms")
                     trace_axs[0].set_ylabel("current / nA")
-                    trace_axs[0].plot(times, data, label='data', alpha=0.25, color='grey')
+                    trace_axs[0].plot(full_times, data, label='data', alpha=0.25, color='grey')
                     trace_axs[0].legend()
                     trace_axs[1].plot(full_times, voltages)
                     trace_axs[1].set_ylabel('voltage / mV')
@@ -321,12 +317,13 @@ def compute_predictions_df(params_df, output_dir, label='predictions',
                         ax.cla()
 
                     all_models_axs[0].plot(full_times, full_prediction,
-                                            label=f"{protocol_fitted}",
-                                            color=colours[i])
+                                           label=f"{protocol_fitted}",
+                                           color=colours[i])
 
             all_models_axs[1].set_xlabel("time / ms")
             all_models_axs[0].set_ylabel("current / nA")
-            all_models_axs[0].plot(times, data, color='grey', alpha=0.5, label='data')
+            all_models_axs[0].plot(full_times, data, color='grey', alpha=0.5,
+                                   label='data')
             # all_models_axs[0].legend()
             all_models_axs[0].set_title(f"{well} {sim_protocol} fits comparison")
             all_models_axs[0].set_ylabel("Current / nA")

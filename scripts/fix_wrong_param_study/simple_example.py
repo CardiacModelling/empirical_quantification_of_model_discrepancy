@@ -92,8 +92,8 @@ def create_axes(fig):
     scatter_axs[1].set_xticklabels([])
     scatter_axs[1].set_yticklabels([])
 
-    scatter_axs[0].set_xlabel(r'$\hat\theta_1$', y=.25)
-    scatter_axs[1].set_xlabel(r'$\hat\theta_1$', y=.25)
+    scatter_axs[0].set_xlabel(r'$\hat\theta_1$', y=1)
+    scatter_axs[1].set_xlabel(r'$\hat\theta_1$', y=1)
     scatter_axs[0].set_ylabel(r'$\hat\theta_2$')
     scatter_axs[1].set_ylabel('')
     scatter_axs[0].set_xticklabels([])
@@ -105,6 +105,8 @@ def create_axes(fig):
 
     mcmc_axs[1].set_ylabel('')
     mcmc_axs[0].set_ylabel(r'$\theta_2$')
+    mcmc_axs[0].set_xlabel(r'$\theta_1$', y=1)
+    mcmc_axs[1].set_xlabel(r'$\theta_1$', y=1)
     mcmc_axs[1].set_yticklabels([])
 
     return observation_time_axes, scatter_axs, mcmc_axs, prediction_plot_axs
@@ -201,7 +203,8 @@ def main():
     global args
     args = argument_parser.parse_args()
     global output_dir
-    output_dir = common.setup_output_directory(args.output, subdir_name='simple_example')
+    output_dir = common.setup_output_directory(args.output,
+                                               subdir_name='simple_example')
 
     global true_theta
     true_theta = np.array([1, 0.1])
@@ -338,9 +341,9 @@ def generate_data_and_fit(observation_axes, scatter_ax, mcmc_ax, prediction_ax,
 def do_mcmc(datasets, observation_times, mcmc_ax, sampling_frequency,
             fitting_df):
     # Use uninformative prior
-
     if not args.results_dir:
         prior = pints.UniformLogPrior([0, 0], [1e1, 1e1])
+
         class pints_log_likelihood(pints.LogPDF):
             def __init__(self, observation_times, data, sigma2):
                 self.observation_times = observation_times

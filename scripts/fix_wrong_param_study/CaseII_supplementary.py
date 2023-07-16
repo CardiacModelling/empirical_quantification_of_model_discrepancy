@@ -123,19 +123,17 @@ def main():
                            'validation_protocol': relabel_dict},
                           inplace=True)
 
-    generate_longap_data()
     make_table(results_df)
     # do_prediction_error_plot(ax, prediction_df, results_df)
 
     fig.savefig(os.path.join(output_dir, f"FigS1.{args.file_format}"))
 
 
-def make_table(fitting_df, args, output_dir):
-
-    relabel_dict = {p: f"$d_{i+1}$" for i, p in enumerate([p for p in
-                                                           fitting_df.protocol.unique() if p != 'longap'])}
+def make_table(fitting_df):
 
     vals = sorted(fitting_df[args.fixed_param].unique())
+    # vstep = int((len(vals) - 1) / 4)
+    # vals = vals[::vstep]
 
     df_rows = []
     parameter_labels = BeattieModel().get_parameter_labels()
@@ -195,10 +193,6 @@ def make_table(fitting_df, args, output_dir):
 
             average_interval_width = np.mean(max_predict - min_predict)
 
-            midpoint_prediction = (max_predict + min_predict) / 2
-            midpoint_prediction_RMSE = np.sqrt(
-                np.mean((midpoint_prediction - current)**2))
-
             points_in_interval_DGP_noise = np.mean(
                 (current <= max_predict + 2*args.noise)
                 & (current >= min_predict - 2*args.noise)
@@ -209,11 +203,12 @@ def make_table(fitting_df, args, output_dir):
                 & (default_prediction >= min_predict)
             )
 
+
+
             new_rows = pd.concat(new_rows, ignore_index=True)
             new_rows['average_interval_width'] = average_interval_width
             new_rows['points_in_interval_DGP'] = points_in_interval_DGP
-            new_rows['points_in_interval_DGP_noise'] = points_in_interval_DGP_noise
-            new_rows['midpoint RMSE'] = midpoint_prediction_RMSE
+            new_rows['points_in_interval_DGP_noise'] = points_in_interval_DGP
 
             df_rows.append(new_rows)
 
@@ -242,6 +237,7 @@ def make_table(fitting_df, args, output_dir):
     agg_dict['average_interval_width'] = ['mean', 'std']
     agg_dict['points_in_interval_DGP'] = ['mean', 'std']
     agg_dict['midpoint RMSE'] = ['mean', 'std']
+
     df = df.groupby([r'$\lambda$'], as_index=True).agg(agg_dict)
     print(df)
 
@@ -301,28 +297,12 @@ def make_table(fitting_df, args, output_dir):
     with open(output_fname, 'w') as fout:
         fout.write(ltx_output)
 
-    s.to_excel(os.path.join(output_dir, 'CaseI_parameter_table.xlsx'))
+    s.to_excel(os.path.join(output_dir, 'CaseII_parameter_table.xlsx'))
 
 
-def do_prediction_error_plot(ax, prediction_df, fitting_df, output_dir, args):
+def do_prediction_error_plot(ax, prediction_df, fitting_df):
 
-    linestyles = [(0, ()),
-                  (0, (1, 2)),
-                  (0, (1, 1)),
-                  (0, (5, 5)),
-                  (0, (3, 5, 1, 5)),
-                  (0, (3, 5, 1, 5, 1, 5))]
-
-    palette = sns.color_palette('husl', len(fitting_df.protocol.unique()))
-
-    protocols = prediction_df.fitting_protocol.unique()
-    relabel_dict = {p: f"$d_{i+1}$" for i, p in enumerate([p for p in protocols \
-                                                           if p != 'longap'])}
-    relabel_dict['longap'] = '$d_0$'
-
-    fixed_param = 'Gkr'
-
-    vals = sorted(prediction_df[fixed_param].unique())
+    vals = sorted(prediction_df[args.fixed_param].unique())
     # vstep = int((len(vals) - 1) / 4)
     # vals = vals[::vstep]
 
@@ -332,20 +312,19 @@ def do_prediction_error_plot(ax, prediction_df, fitting_df, output_dir, args):
                                           f'synthetic-longap-times.csv'))['time'].values.astype(np.float64)
     model = BeattieModel(prot_func,
                          times=full_times,
-                         E_rev=common.calculate_reversal_potential(298, 120, 5),
+                         E_rev = common.calculate_reversal_potential(298, 120, 5),
                          protocol_description=desc)
 
     prediction_solver = model.make_forward_solver_current(njitted=False)
 
     df_rows = []
-
     for val in vals:
         for protocol in fitting_df.protocol.unique():
             for well in fitting_df.well.unique():
                 sub_df = fitting_df[
                     (fitting_df.well == well) & \
                     (fitting_df.protocol == protocol) & \
-                    (fitting_df[fixed_param] == val)
+                    (fitting_df[args.fixed_param] == val)
                 ]
 
                 len(sub_df.index == 1)
@@ -362,7 +341,7 @@ def do_prediction_error_plot(ax, prediction_df, fitting_df, output_dir, args):
                 RMSE = np.sqrt(np.mean((prediction - current)**2))
                 RMSE_DGP = np.sqrt(np.mean((prediction - prediction_solver())**2))
 
-                new_row = pd.DataFrame([[well, fixed_param, protocol,
+                new_row = pd.DataFrame([[well, args.fixed_param, protocol,
                                          'longap', RMSE, RMSE_DGP, RMSE, *params]],
                                        columns=(
                                            'well', 'fixed_param', 'fitting_protocol',
@@ -376,10 +355,11 @@ def do_prediction_error_plot(ax, prediction_df, fitting_df, output_dir, args):
     prediction_df = pd.concat((prediction_df, *df_rows))
     prediction_df = prediction_df[prediction_df.validation_protocol=='longap']
 
+
     default_params = BeattieModel().get_default_parameters()
 
-    prediction_df[r'$\lambda$'] = prediction_df[fixed_param].astype(np.float64) / default_params[-1]
-    # df_to_plot = prediction_df.groupby([fixed_param, 'fitting_protocol',
+    prediction_df[r'$\lambda$'] = prediction_df[args.fixed_param].astype(np.float64) / default_params[-1]
+    # df_to_plot = prediction_df.groupby([args.fixed_param, 'fitting_protocol',
     #                                     'validation_protocol']).mean().reset_index()
 
     markers = ['1', '2', '3', '4', '+', 'x']
@@ -388,57 +368,18 @@ def do_prediction_error_plot(ax, prediction_df, fitting_df, output_dir, args):
 
     print(prediction_df[r'$\lambda$'])
 
-    mean_midpoint_RMSEs = []
-    for val in vals:
-        midpoint_RMSEs = []
-        for well in prediction_df.well.unique():
-            predictions = []
-            for protocol in protocols:
-                predictions.append(prediction)
-                sub_df = fitting_df[
-                    (fitting_df.well == well) & \
-                    (fitting_df.protocol == protocol) & \
-                    (fitting_df[fixed_param] == val)
-                ]
-
-                len(sub_df.index == 1)
-                row = sub_df.head(1)
-                params = row[parameter_labels].values.flatten().astype(np.float64)
-
-                # Predict longap protocol
-                prediction = prediction_solver(params)
-                predictions.append(prediction)
-
-            predictions = np.vstack(predictions)
-            midpoint_prediction = (predictions.max(axis=0) + predictions.min(axis=0))/2
-
-            current = pd.read_csv(os.path.join(output_dir,
-                                               f'synthetic-longap-{well}.csv'))['current'].values.astype(np.float64)
-            midpoint_RMSE = np.sqrt(np.mean((current - midpoint_prediction)**2))
-
-            midpoint_RMSEs.append(midpoint_RMSE)
-
-        mean_midpoint_RMSEs.append(np.mean(midpoint_RMSEs))
-
-    prediction_df['protocol'] = prediction_df.fitting_protocol
-    prediction_df.sort_by('protocol', inplace=True)
-
     sns.lineplot(
         data=prediction_df,
         x=r'$\lambda$',
         y='RMSE',
-        hue='protocol',
-        style='protocol',
+        hue='fitting_protocol',
+        style='fitting_protocol',
         palette=palette,
         dashes=[ls[1] for ls in linestyles],
         ax=ax,
         linewidth=.5,
         errorbar=('ci', 95)
     )
-
-    # ax.plot(sorted(prediction_df[r'$\lambda$'].unique()),
-    #         mean_midpoint_RMSEs, lw=.5, color='black',
-    #         label='midpoint prediction RMSE')
 
     ax.set_ylabel(r'RMSE$\big(\mathbf{y}(\mathbf \theta; d_0), \mathbf z(d)\big)$ (nA)')
 
@@ -450,14 +391,11 @@ def do_prediction_error_plot(ax, prediction_df, fitting_df, output_dir, args):
     for line in leg.get_lines():
         line.set_linewidth(1)
 
-    # handles, labels = ax.get_legend_handles_labels()
-    # ax.legend(handles=handles[1:], labels=labels[1:])
 
 
 def create_axes(fig):
     ax = fig.subplots()
     return ax
-
 
 def generate_longap_data():
     generate_data('longap', args.no_data_repeats, BeattieModel,

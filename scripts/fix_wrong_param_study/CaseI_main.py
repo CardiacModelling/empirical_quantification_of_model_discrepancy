@@ -151,7 +151,9 @@ def main():
 
                 this_protocol_datasets.append((times, current))
             datasets.append(this_protocol_datasets)
-        datasets_df = pd.DataFrame(datasets_df, columns=('protocol', 'protocol_index', 'repeat'))
+        datasets_df = pd.DataFrame(datasets_df, columns=('protocol',
+                                                         'protocol_index',
+                                                         'repeat'))
 
         prediction_df = compute_predictions_df(results_df, BeattieModel,
                                                datasets, datasets_df, args,
@@ -520,7 +522,6 @@ def create_axes(fig):
     gs = GridSpec(nrows, ncols, height_ratios=[0.3, 1, 1, 1, 1, 1],
                   width_ratios=[.05, 1, 1, .8], wspace=.55,
                   right=.95,
-                  #space=.275,
                   left=.11,
                   bottom=0.1,
                   figure=fig)

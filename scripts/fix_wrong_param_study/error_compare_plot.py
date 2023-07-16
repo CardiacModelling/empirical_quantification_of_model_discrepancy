@@ -202,8 +202,8 @@ def do_interval_vs_error_plot(axes, scatter_ax, results_df,
     # axes[1].plot(times*1e-3, truth, lw=.5, color='blue')
 
     axes[0].set_ylabel('V (mV)')
-    axes[2].set_ylabel(r'$\big[\mathcal{B}_\textrm{lower}, \mathcal{B}_\textrm{upper}\big] - I_\textrm{Kr}$')
-    axes[1].set_ylabel(r'$\big[\mathcal{B}_\textrm{lower}, \mathcal{B}_\textrm{upper}\big]$ (nA)')
+    axes[2].set_ylabel(r'$\mathcal{B} - I_\textrm{Kr}$ (nA)')
+    axes[1].set_ylabel(r'$\mathcal{B}$ (nA)')
     axes[2].set_xlabel(r'$t$ (s)')
 
     palette = sns.color_palette('cubehelix', as_cmap=True)
@@ -234,7 +234,7 @@ def do_interval_vs_error_plot(axes, scatter_ax, results_df,
     scatter_ax[0].set_ylabel(r'$\mathcal{B}_\textrm{upper} - \mathcal{B}_\textrm{lower}$ (nA)')
     scatter_ax[0].set_xlabel(r'error ($\mathcal{B}_\textrm{mid} - I_\textrm{Kr}$) (nA)')
 
-    scatter_ax[0].text(0, 3.0, r'\centering $\mathcal{B}_\textrm{lower} < I_\textrm{Kr} < \mathcal{B}_\textrm{upper}$',
+    scatter_ax[0].text(0, 3.0, r'\centering $I_\textrm{Kr} \in \mathcal{B}$',
                        ha='center')
 
     scatter_ax[0].text(-1.15, 0.5, r'$\mathcal{B}_\textrm{upper} < I_\textrm{Kr}$',
