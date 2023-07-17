@@ -246,7 +246,7 @@ def make_table(fitting_df):
 
     ltx_output = s.to_latex(sparse_columns=True, multicol_align="c" )
     print(ltx_output)
-    output_fname = os.path.join(output_dir, 'CaseI_table.tex')
+    output_fname = os.path.join(output_dir, 'CaseII_table.tex')
     with open(output_fname, 'w') as fout:
         fout.write(ltx_output)
 

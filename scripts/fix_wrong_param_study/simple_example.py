@@ -27,7 +27,7 @@ def create_axes(fig):
     gs = GridSpec(5, 4, figure=fig,
                   height_ratios=[.55, .55, 1, 1, 1],
                   wspace=0.35,
-                  hspace=.25,
+                  hspace=.5,
                   bottom=0.07,
                   right=0.95,
                   top=0.97)
@@ -73,7 +73,8 @@ def create_axes(fig):
 
     for ax in (observation_time_axes[0][2], observation_time_axes[0][3],
                observation_time_axes[1][2], observation_time_axes[1][3]):
-        ax.set_xlabel(r'$t$', y=.25)
+        ax.set_xlabel(r'$t$')
+        ax.xaxis.set_label_coords(0.5, -0.1)
 
     prediction_plot_axs = [fig.add_subplot(gs[4, 0:2]),
                            fig.add_subplot(gs[4, 2:4])]
@@ -92,8 +93,6 @@ def create_axes(fig):
     scatter_axs[1].set_xticklabels([])
     scatter_axs[1].set_yticklabels([])
 
-    scatter_axs[0].set_xlabel(r'$\hat\theta_1$', y=1)
-    scatter_axs[1].set_xlabel(r'$\hat\theta_1$', y=1)
     scatter_axs[0].set_ylabel(r'$\hat\theta_2$')
     scatter_axs[1].set_ylabel('')
     scatter_axs[0].set_xticklabels([])
@@ -104,9 +103,6 @@ def create_axes(fig):
     prediction_plot_axs[1].set_yticklabels([])
 
     mcmc_axs[1].set_ylabel('')
-    mcmc_axs[0].set_ylabel(r'$\theta_2$')
-    mcmc_axs[0].set_xlabel(r'$\theta_1$', y=1)
-    mcmc_axs[1].set_xlabel(r'$\theta_1$', y=1)
     mcmc_axs[1].set_yticklabels([])
 
     return observation_time_axes, scatter_axs, mcmc_axs, prediction_plot_axs
@@ -188,7 +184,7 @@ def main():
     argument_parser = argparse.ArgumentParser()
 
     argument_parser.add_argument('-o', '--output')
-    argument_parser.add_argument('--figsize', default=[4.685, 5.9], type=int,
+    argument_parser.add_argument('--figsize', default=[4.685, 5.5], type=int,
                                  nargs=2)
     argument_parser.add_argument('--no_datasets', default=10, type=int)
     argument_parser.add_argument('--sigma', default=0.01, type=float)
@@ -240,6 +236,19 @@ def main():
     page_ax.axis('off')
 
     prediction_axes[1].set_ylabel('')
+
+    mcmc_axes[0].set_ylabel(r'$\theta_2$')
+    mcmc_axes[0].set_xlabel(r'$\theta_1$')
+    mcmc_axes[1].set_xlabel(r'$\theta_1$')
+
+    scatter_axes[0].xaxis.set_label_coords(0.45, -0.1)
+    scatter_axes[1].xaxis.set_label_coords(0.45, -0.1)
+
+    mcmc_axes[0].xaxis.set_label_coords(0.45, -0.1)
+    mcmc_axes[1].xaxis.set_label_coords(0.45, -0.1)
+
+    scatter_axes[0].set_xlabel(r'$\hat\theta_1$')
+    scatter_axes[1].set_xlabel(r'$\hat\theta_1$')
 
     fig.savefig(os.path.join(output_dir, f"Fig1.{args.file_format}"))
 

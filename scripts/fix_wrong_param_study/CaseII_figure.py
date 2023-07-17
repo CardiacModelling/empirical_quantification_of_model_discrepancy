@@ -282,13 +282,12 @@ def make_table(dfs, protocol):
             max_predict = predictions.max(axis=0)
             min_predict = predictions.min(axis=0)
 
+            midpoint_prediction = (max_predict + min_predict) / 2
+
+            midpoint_prediction_RMSE = np.sqrt(
+                np.mean((midpoint_prediction - current)**2))
+
             average_interval_width = np.mean(max_predict - min_predict)
-
-            points_in_interval_DGP_noise = np.mean(
-                (current <= max_predict + 2*args.noise)
-                & (current >= min_predict - 2*args.noise)
-            )
-
             points_in_interval_DGP = np.mean(
                 (default_prediction <= max_predict)
                 & (default_prediction >= min_predict)
@@ -298,6 +297,7 @@ def make_table(dfs, protocol):
             new_rows['average_interval_width'] = average_interval_width
             new_rows['points_in_interval_DGP'] = points_in_interval_DGP
             new_rows['points_in_interval_DGP_noise'] = points_in_interval_DGP
+            new_rows['midpoint RMSE'] = midpoint_prediction_RMSE
 
             combined_df_rows.append(new_rows)
             df_rows.append(new_rows)
@@ -327,7 +327,7 @@ def make_table(dfs, protocol):
             'p6': '$p_6$',
             'p7': '$p_7$',
             'p8': '$p_8$',
-            'k_f_a': '$k_b$',
+            'k_f_a': '$k_f$',
             'b_a1_a': '$q_7$',
             'b_a1_b': '$q_8$',
             'a_1_a': '$q_1$',
@@ -336,7 +336,7 @@ def make_table(dfs, protocol):
             'b_1_b': '$q_{10}$',
             'a_a0_a': '$q_3$',
             'a_a0_b': '$q_4$',
-            'k_b_a': '$k_f$',
+            'k_b_a': '$k_b$',
             'a_a1_a': '$q_5$',
             'a_a1_b': '$q_6$',
             'b_a0_a': '$q_{11}$',
@@ -366,19 +366,20 @@ def make_table(dfs, protocol):
 
     combined_df = pd.concat(combined_df_rows, ignore_index=True)
     combined_df = combined_df[['model_class', 'average_interval_width',
-                               'points_in_interval_DGP', 'well', 'points_in_interval_DGP_noise',
+                               'points_in_interval_DGP', 'well', 'points_in_interval_DGP_noise', 'midpoint RMSE',
                                'RMSE']].set_index('model_class')
 
     agg_dict = {}
-    agg_dict['average_interval_width'] = ['mean', 'std']
-    agg_dict['points_in_interval_DGP'] = ['mean', 'std']
+    agg_dict['average_interval_width'] = mean_std_func
+    agg_dict['points_in_interval_DGP'] = mean_std_func
+    agg_dict['midpoint RMSE'] = mean_std_func
     combined_df = combined_df.groupby(['model_class'], as_index=True).agg(agg_dict)
-    combined_df.to_csv(os.path.join(output_dir, f"{model_class_name}_table.csv"))
+    # combined_df.to_csv(os.path.join(output_dir, f"{model_class_name}_table.csv"))
 
-    s = combined_df.style.format("{:.1E}".format)
+    s = combined_df.style
 
     ltx_output = s.to_latex(sparse_columns=True, multicol_align="c" )
-    output_fname = os.path.join(output_dir, f"CaseII_table1.tex")
+    output_fname = os.path.join(output_dir, "CaseII_table1.tex")
     with open(output_fname, 'w') as fout:
         fout.write(ltx_output)
 
