@@ -1,7 +1,7 @@
 import numpy as np
 import sympy as sp
 import markov_builder
-from scipy.integrate import odeint
+import pints
 
 from . MarkovModel import MarkovModel
 
@@ -39,16 +39,16 @@ class ClosedOpenModel(MarkovModel):
                                    for key, val in mc.default_values.items()
                                    if str(key) != 'E_Kr']
 
+        self.transformations = [
+            pints.LogTransformation(1),
+            pints.LogTransformation(1),
+            pints.LogTransformation(1),
+            pints.LogTransformation(1),
+            pints.LogTransformation(1),
+        ]
+
         if parameters is not None:
             self.default_parameters = parameters
-
-        if Erev is None:
-            self.Erev = -80
-        else:
-            self.Erev = Erev
-
-        if times is None:
-            times = np.linspace(0, 15000, 1000)
 
         self.state_labels = list(mc.graph)
         self.parameter_labels = [key for key in mc.default_values if str(key) != 'E_Kr']

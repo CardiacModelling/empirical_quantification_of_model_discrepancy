@@ -19,9 +19,12 @@ rc('figure', dpi=500)
 rc('axes', facecolor=[0]*4)
 
 plt.rcParams['legend.title_fontsize'] = '0'
-plt.rcParams['legend.framealpha'] = 1
+plt.rcParams['legend.framealpha'] = .8
+plt.rcParams['legend.shadow'] = False
 plt.rcParams['legend.markerscale'] = .8
 plt.rcParams.update({'legend.fontsize': 8})
+
+sns.set_style(style='ticks', rc=None)
 
 
 def create_axes(fig):
@@ -185,7 +188,7 @@ def main():
     argument_parser = argparse.ArgumentParser()
 
     argument_parser.add_argument('-o', '--output')
-    argument_parser.add_argument('--figsize', default=[4.685, 6.75], type=int,
+    argument_parser.add_argument('--figsize', default=[4.685, 6.1], type=int,
                                  nargs=2)
     argument_parser.add_argument('--no_datasets', default=10, type=int)
     argument_parser.add_argument('--sigma', default=0.01, type=float)
@@ -225,8 +228,8 @@ def main():
                           sigma=args.sigma, dash=True)
 
     for ax in scatter_axes + mcmc_axes:
-        ax.set_ylim([.9, 2.6])
-        ax.set_xlim([.15, 1.5])
+        ax.set_ylim([.9, 2.75])
+        ax.set_xlim([.15, 1.6])
 
     page_ax = fig.subplots()
     page_ax.set_xticks([])
@@ -447,11 +450,11 @@ def plot_mcmc_kde(mcmc_ax, samples_list, df, fitting_df, palette, sampling_frequ
     #                     alpha=0.4)
 
     text_locs = [
-        [.225, 1.6],
-        [.41, 1.35],
-        [.725, 1.45],
-        [1.1, 1.2],
-        [0.65, 1.9],
+        [.225, 1.3],
+        [.41, 1.2],
+        [.75, 1.4],
+        [1.1, 1.3],
+        [0.65, 2.1],
     ]
 
     for i, d in enumerate(fitting_df['observation times'].unique()):

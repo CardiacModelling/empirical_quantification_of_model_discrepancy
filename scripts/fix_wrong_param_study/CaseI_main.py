@@ -686,16 +686,22 @@ def scatter_plots(axes, results_df, params=['p1', 'p2'], col=0):
     traj_df = results_df.sort_values(args.fixed_param)
     traj_df = traj_df[~traj_df.protocol.isin(args.ignore_protocols)]
 
+    traj_df.groupby([args.fixed_param, 'protocol']).agg(
+        {lab: 'mean' for lab in parameter_labels if lab != args.fixed_param}
+    ).reset_index()
+
     print(sorted(traj_df.protocol.unique()))
     for i, protocol in enumerate(sorted(traj_df.protocol.unique())):
         xs = traj_df[traj_df.protocol == protocol][params[0]]
         ys = traj_df[traj_df.protocol == protocol][params[1]]
-        # x_new = np.linspace(*np.quantile(traj_df[args.fixed_param], [0, 1]), 50)
-        # y_new = np.polynomial.polynomial.polyval(x_new, coefs)
-        tck, u = scipy.interpolate.splprep([xs, ys])
-        x_new, y_new = scipy.interpolate.splev(np.linspace(0, 1, 500), tck)
+
         for ax in scatter_axes:
-            ax.plot(x_new*1e3, y_new, lw=.3, color=colours[i], alpha=.75)
+            for [[x_1, y_1], [x_2, y_2]] in zip(zip(xs[:-1], ys[:-1]), zip(xs[1:], ys[1:])):
+                print(x_1, x_2, y_1, y_2)
+                ax.plot(np.array([x_1, x_2])*1e3,
+                        np.array([y_1, y_2]),
+                        lw=.3, color=colours[i],
+                        alpha=.75)
 
     xlim = scatter_axes[0].get_xlim()
     xlim = (min(0, xlim[0]), xlim[1])

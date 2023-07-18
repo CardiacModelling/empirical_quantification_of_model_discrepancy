@@ -153,7 +153,9 @@ def do_prediction_plots(axes, results_dfs, prediction_protocol, current, times):
         for training_protocol in sorted(training_protocols):
             model_class = common.get_model_class(args.model_class[i])
             parameter_labels = model_class().get_parameter_labels()
-            model = model_class(voltage_func, times, protocol_description=protocol_desc)
+            model = model_class(voltage_func, times,
+                                protocol_description=protocol_desc,
+                                E_rev=common.calculate_reversal_potential())
             solver = model.make_forward_solver_current()
 
             results_df = results_dfs[i]

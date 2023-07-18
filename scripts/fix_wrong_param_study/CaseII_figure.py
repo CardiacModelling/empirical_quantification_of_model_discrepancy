@@ -53,7 +53,7 @@ def main():
     parser.add_argument('--noise', default=0.03)
     parser.add_argument('--sampling_period', default=0.1, type=float)
     parser.add_argument('--chain_length', '-l', default=500, help='mcmc chains to run', type=int)
-    parser.add_argument('--figsize', '-f', type=int, nargs=2, default=[4, 3.8])
+    parser.add_argument('--figsize', '-f', type=int, nargs=2, default=[4.685, 3.25])
     parser.add_argument('--use_parameter_file')
     parser.add_argument('-i', '--ignore_protocols', nargs='+',
                         default=['longap'])
@@ -63,6 +63,8 @@ def main():
     parser.add_argument("-m", "--model_class", default='Beattie')
     parser.add_argument('--prediction_protocol', default='longap')
     parser.add_argument('--solver_type')
+
+    parser.add_argument('--predictions_df')
 
     parser.add_argument("--vlim", nargs=2, type=float)
 
@@ -95,7 +97,7 @@ def main():
 
     global relabel_dict
     relabel_dict = {p: f"$d_{i+1}$" for i, p in enumerate([p for p in protocols if p not in args.ignore_protocols and p not in args.prediction_protocol])}
-    relabel_dict['longap'] = '$d^*$'
+    relabel_dict['longap'] = '$d_0$'
 
     print("protocols protocols:", relabel_dict)
 
@@ -129,71 +131,76 @@ def main():
 
         model_class = common.get_model_class(model)
         parameter_labels = model_class().get_parameter_labels()
-        try:
-            prediction_df = pd.read_csv(os.path.join(results_dir,
-                                                     'predictions_df.csv'))
-        except FileNotFoundError:
-            inv_map = {v: k for k, v in relabel_dict.items()}
-            results_df_original_names = results_df.replace(inv_map)
-            print(results_df_original_names, model_class)
-            prediction_df = compute_predictions_df(results_df_original_names,
-                                                   output_dir,
-                                                   model_class=common.get_model_class(model),
-                                                   args=args)
-            prediction_df.to_csv(os.path.join(output_dir,
-                                              "predictions_df.csv"))
 
-            prot_func, times, desc = common.get_ramp_protocol_from_csv('longap')
-            full_times = pd.read_csv(os.path.join(args.data_dir,
-                                                  f'synthetic-longap-times.csv'))['time'].values.astype(np.float64)
-            model = model_class(prot_func,
-                                times=full_times,
-                                protocol_description=desc)
+        if args.predictions_df:
+            prediction_df = pd.read_csv(args.predictions_df)
 
-            prediction_solver = model.make_forward_solver_current(njitted=False)
+        else:
+            try:
+                prediction_df = pd.read_csv(os.path.join(results_dir,
+                                                        'predictions_df.csv'))
+            except FileNotFoundError:
+                inv_map = {v: k for k, v in relabel_dict.items()}
+                results_df_original_names = results_df.replace(inv_map)
+                print(results_df_original_names, model_class)
+                prediction_df = compute_predictions_df(results_df_original_names,
+                                                    output_dir,
+                                                    model_class=common.get_model_class(model),
+                                                    args=args)
+                prediction_df.to_csv(os.path.join(output_dir,
+                                                "predictions_df.csv"))
 
-            new_rows = []
-            for protocol in results_df.protocol.unique():
-                for well in results_df.well.unique():
-                    sub_df = results_df[
-                        (results_df.well == well) & \
-                        (results_df.protocol == protocol)
-                    ]
+                prot_func, times, desc = common.get_ramp_protocol_from_csv('longap')
+                full_times = pd.read_csv(os.path.join(args.data_dir,
+                                                    f'synthetic-longap-times.csv'))['time'].values.astype(np.float64)
+                model = model_class(prot_func,
+                                    times=full_times,
+                                    protocol_description=desc)
 
-                    len(sub_df.index)
-                    row = sub_df.head(1)
-                    params = row[parameter_labels].values.flatten().astype(np.float64)
+                prediction_solver = model.make_forward_solver_current(njitted=False)
 
-                    print(params)
+                new_rows = []
+                for protocol in results_df.protocol.unique():
+                    for well in results_df.well.unique():
+                        sub_df = results_df[
+                            (results_df.well == well) & \
+                            (results_df.protocol == protocol)
+                        ]
 
-                    # Predict longap protocol
-                    prediction = prediction_solver(params)
-                    # Compute RMSE
-                    current = pd.read_csv(os.path.join(args.data_dir,
-                                                    f'synthetic-longap-{well}.csv'))['current'].values.astype(np.float64)
-                    RMSE = np.sqrt(np.mean((prediction - current)**2))
-                    RMSE_DGP = np.sqrt(np.mean((prediction - prediction_solver())**2))
+                        len(sub_df.index)
+                        row = sub_df.head(1)
+                        params = row[parameter_labels].values.flatten().astype(np.float64)
 
-                    new_row = pd.DataFrame([[well, protocol,
-                                            'longap', RMSE, RMSE_DGP, RMSE, *params]],
-                                           columns=(
-                                               'well', 'fitting_protocol',
-                                               'validation_protocol',
-                                               'score', 'RMSE_DGP', 'RMSE', *parameter_labels
-                                        ))
-                    new_rows.append(new_row)
+                        print(params)
 
-        prediction_df = pd.concat([*new_rows, prediction_df],
-                                  ignore_index=True)
+                        # Predict longap protocol
+                        prediction = prediction_solver(params)
+                        # Compute RMSE
+                        current = pd.read_csv(os.path.join(args.data_dir,
+                                                        f'synthetic-longap-{well}.csv'))['current'].values.astype(np.float64)
+                        RMSE = np.sqrt(np.mean((prediction - current)**2))
+                        RMSE_DGP = np.sqrt(np.mean((prediction - prediction_solver())**2))
 
-        prediction_df.replace({'fitting_protocol': relabel_dict,
-                               'validation_protocol': relabel_dict}, inplace=True)
+                        new_row = pd.DataFrame([[well, protocol,
+                                                'longap', RMSE, RMSE_DGP, RMSE, *params]],
+                                            columns=(
+                                                'well', 'fitting_protocol',
+                                                'validation_protocol',
+                                                'score', 'RMSE_DGP', 'RMSE', *parameter_labels
+                                            ))
+                        new_rows.append(new_row)
+
+            prediction_df = pd.concat([*new_rows, prediction_df],
+                                    ignore_index=True)
+
+            prediction_df.replace({'fitting_protocol': relabel_dict,
+                                'validation_protocol': relabel_dict}, inplace=True)
 
         keep_rows = ~prediction_df.validation_protocol.isin(args.ignore_protocols) &\
             prediction_df.fitting_protocol.isin(relabel_dict.values())
 
         prediction_df = prediction_df[keep_rows]
-        prediction_df['model'] = model.get_model_name()
+        prediction_df['model'] = model_class().get_model_name()
         prediction_dfs.append(prediction_df)
 
     plot_heatmaps(axes, prediction_dfs)
@@ -485,13 +492,13 @@ def do_prediction_plots(axes, results_dfs, prediction_protocol, current, times):
         ax.set_xticks([0, 8000])
         ax.set_xticklabels(['0s', '8s'], rotation='horizontal')
 
-        ax.set_yticks([-20, 0, 10])
+        ax.set_yticks([-15, 0, 10])
         yticks = ax.get_yticks()
 
         ylabs = [str(l) + '' for l in yticks]
 
         ax.set_yticklabels(ylabs, rotation='horizontal')
-        ax.set_ylim([-20, 14])
+        ax.set_ylim([-15, 10])
 
         # remove spines
         ax.spines.right.set_visible(False)
@@ -574,7 +581,7 @@ def plot_heatmaps(axes, prediction_dfs):
 
         # Ignore training to validation protocols, labels 'V' and '$d^*$', have
         # been used for validation protocols
-        sub_df = sub_df[~sub_df.fitting_protocol.isin(['V', '$d^*$'])]
+        sub_df = sub_df[~sub_df.fitting_protocol.isin(['V', '$d_0$'])]
 
         pivot_df = sub_df.pivot(columns='fitting_protocol',
                                 index='validation_protocol', values='RMSE')
@@ -586,7 +593,7 @@ def plot_heatmaps(axes, prediction_dfs):
 
         # Add arrow from heatmap to prediction plot
         ax2 = prediction_axes[i]
-        xyA = [7750, 1]
+        xyA = [7750, 5]
         xyB = [-.1, 0.5]
         con = ConnectionPatch(
             xyA=xyB, coordsA=ax.transData,
@@ -662,9 +669,10 @@ def create_axes(fig):
     global gs
 
     gs = GridSpec(nrows, ncols, height_ratios=[0.2, 1, 1],
-                  width_ratios=[.05, 1, 1, .8], wspace=.55,
-                  # right=.95,
-                  # left=.11,
+                  width_ratios=[.1, 1, 1, .8],
+                  wspace=.65,
+                  right=.95,
+                  left=.1,
                   hspace=.4,
                   bottom=0.15,
                   top=.85,
@@ -690,7 +698,7 @@ def create_axes(fig):
 
     axes[3].set_title(r'\textbf{a}', loc='left')
     axes[1].set_title(r'\textbf{b}', loc='left')
-    axes[5].set_title(r'\textbf{d}', x=-0.25, y=.95)
+    axes[5].set_title(r'\textbf{d}', x=-0.2, y=1.01)
     axes[4].set_title(r'\textbf{c}', loc='left')
 
     # move entire first row up
