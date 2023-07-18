@@ -185,7 +185,7 @@ def main():
     fig = plt.figure(figsize=args.figsize2)
     ax = fig.subplots()
     do_prediction_error_plot(ax, prediction_df, results_df, output_dir, args)
-    fig.savefig(os.path.join(output_dir, f"FigS1.{args.file_format}"))
+    fig.savefig(os.path.join(output_dir, f"Fig10.{args.file_format}"))
 
     make_table(results_df, args, output_dir)
 
@@ -322,17 +322,17 @@ def do_prediction_plots(axes, results_df, prediction_protocol, data):
     axes[colno].set_xlim([0, 9000])
 
     prediction_axes[-1].set_xlabel(r'$t$ (s)')
-    prediction_axes[-1].set_ylabel(r'$I_\textrm{Kr} (nA)$')
+    prediction_axes[-1].set_ylabel(r'$I_\textrm{Kr}$ (nA)')
 
     # axes[colno].yaxis.tick_right()
     labels = ['0', '7.5']
     axes[colno].spines.right.set_visible(False)
     axes[colno].spines.top.set_visible(False)
 
-    axes[colno].set_xticks([])
+    axes[colno].set_xticklabels([])
 
     for ax in prediction_axes[:-1]:
-        ax.set_xticks([])
+        ax.set_xticklabels([])
 
     prediction_axes[-1].set_xticks([0, 7500])
     prediction_axes[-1].set_xticklabels(labels)
@@ -434,6 +434,10 @@ def plot_heatmaps(axes, prediction_df):
         sub_df = averaged_df[averaged_df[args.fixed_param] == vals[i]].copy()
         sub_df = sub_df[~sub_df.fitting_protocol.isin(['V', '$d_0$'])]
 
+        sub_df.replace({'fitting_protocol': relabel_dict,
+                        'validation_protocol': relabel_dict},
+                       inplace=True)
+
         print(sub_df.columns)
 
         pivot_df = sub_df.pivot(columns='fitting_protocol',
@@ -472,13 +476,13 @@ def plot_heatmaps(axes, prediction_df):
         if i != 0:
             ax.set_ylabel('')
             ax.set_xlabel('')
-            ax.set_yticks([])
             ax.set_xticks([])
+            ax.set_yticks([])
         else:
             ax.set_xlabel('training', labelpad=0)
             ax.set_ylabel('validation')
-            ax.xaxis.tick_top()
-            ax.yaxis.tick_right()
+        ax.xaxis.tick_top()
+        ax.yaxis.tick_right()
 
     cbar_kws = {'orientation': 'horizontal',
                 'fraction': 1,
@@ -576,6 +580,8 @@ def create_axes(fig):
 
     number_line_axes.set_yticklabels(tick_labels)
     number_line_axes.set_ylabel(r'$\lambda$', rotation=0, loc='top')
+    number_line_axes.xaxis.set_label_coords(0.5, 1)
+
     number_line_axes.invert_yaxis()
     # number_line_axes.yaxis.tick_right()
 
@@ -660,7 +666,7 @@ def scatter_plots(axes, results_df, params=['p1', 'p2'], col=0):
     ticks = [ticks[0], ticks[-1]]
     tick_labels = [f"{v:.2f}" for v in ticks]
     for i in range(4):
-        scatter_axes[i].set_xticks([])
+        scatter_axes[i].set_xticklabels([])
         scatter_axes[i].set_xlabel('')
 
     scatter_axes[4].set_xticks(ticks)

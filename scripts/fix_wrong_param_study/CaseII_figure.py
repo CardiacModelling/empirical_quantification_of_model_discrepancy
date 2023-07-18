@@ -35,7 +35,7 @@ from fit_all_wells_and_protocols import compute_predictions_df
 
 rc('font', **{'family': 'serif', 'serif': ['Computer Modern'], 'size': 8})
 rc('text', usetex=True)
-rc('figure', dpi=1000)
+rc('figure', dpi=1000, facecolor=[0]*4)
 rc('axes', facecolor=[0]*4)
 rc('savefig', facecolor=[0]*4)
 
@@ -53,7 +53,7 @@ def main():
     parser.add_argument('--noise', default=0.03)
     parser.add_argument('--sampling_period', default=0.1, type=float)
     parser.add_argument('--chain_length', '-l', default=500, help='mcmc chains to run', type=int)
-    parser.add_argument('--figsize', '-f', type=int, nargs=2, default=[4, 2.5])
+    parser.add_argument('--figsize', '-f', type=int, nargs=2, default=[4, 3.8])
     parser.add_argument('--use_parameter_file')
     parser.add_argument('-i', '--ignore_protocols', nargs='+',
                         default=['longap'])
@@ -530,8 +530,8 @@ def do_prediction_plots(axes, results_dfs, prediction_protocol, current, times):
     box.x1 += 0.05
     ax.set_position(box)
 
-    axes[colno].set_xticks([])
-    axes[colno + 3].set_xticks([])
+    axes[colno].set_xticklabels([])
+    axes[colno + 3].set_xticklabels([])
     labels = ['0', '7.5']
     axes[colno + 6].set_xticks([0, 7500])
     axes[colno + 6].set_xticklabels(labels)
@@ -609,8 +609,6 @@ def plot_heatmaps(axes, prediction_dfs):
             rec = ax.add_patch(rec)
             rec.set_clip_on(False)
 
-
-
         if i != 0:
             ax.set_ylabel('')
             ax.set_xlabel('')
@@ -664,11 +662,11 @@ def create_axes(fig):
     global gs
 
     gs = GridSpec(nrows, ncols, height_ratios=[0.2, 1, 1],
-                  width_ratios=[.05, 1, 1, 1], wspace=.55,
-                  right=.95,
-                  left=.11,
-                  hspace=.5,
-                  bottom=0.1,
+                  width_ratios=[.05, 1, 1, .8], wspace=.55,
+                  # right=.95,
+                  # left=.11,
+                  hspace=.4,
+                  bottom=0.15,
                   top=.85,
                   figure=fig)
 
@@ -692,7 +690,7 @@ def create_axes(fig):
 
     axes[3].set_title(r'\textbf{a}', loc='left')
     axes[1].set_title(r'\textbf{b}', loc='left')
-    axes[5].set_title(r'\textbf{d}', x=-0.2, loc='left')
+    axes[5].set_title(r'\textbf{d}', x=-0.25, y=.95)
     axes[4].set_title(r'\textbf{c}', loc='left')
 
     # move entire first row up
@@ -786,7 +784,7 @@ def scatter_plots(axes, results_dfs, params=['p1', 'p2'], col=0):
 
     ticks = scatter_axes[0].get_xticks()
     tick_labels = scatter_axes[0].get_xticklabels()
-    scatter_axes[0].set_xticks([])
+    scatter_axes[0].set_xticklabels([])
     scatter_axes[1].set_xticks(ticks)
     scatter_axes[1].set_xticklabels(tick_labels)
     scatter_axes[1].set_xlabel('protocol')

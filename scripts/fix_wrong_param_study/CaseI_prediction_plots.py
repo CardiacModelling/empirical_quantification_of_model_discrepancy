@@ -120,10 +120,10 @@ def main():
                                     f"synthetic-{args.prediction_protocol}-0.csv"))
 
     do_prediction_plots(axes, results_df, args.prediction_protocol, data)
-    axes[1].set_title(r'\textbf{a}', loc='left')
-    axes[2].set_title(r'\textbf{b}', loc='left')
-    axes[3].set_title(r'\textbf{c}', loc='left')
-    axes[4].set_title(r'\textbf{d}', loc='left')
+    axes[1].set_title(r'\textbf{a}', loc='left', x=-.05)
+    axes[2].set_title(r'\textbf{b}', loc='left', x=-.05)
+    axes[3].set_title(r'\textbf{c}', loc='left', x=-.05)
+    axes[4].set_title(r'\textbf{d}', loc='left', x=-.05)
 
     fig.savefig(os.path.join(output_dir, f"Fig4.{args.file_format}"))
 
@@ -295,10 +295,9 @@ def create_axes(fig):
 
     axes = [fig.add_subplot(cell) for cell in gs]
 
-    axes[1].set_title(r'\textbf{a}', loc='left')
-    axes[2].set_title(r'\textbf{b}', loc='left')
-    axes[3].set_title(r'\textbf{c}', loc='left')
-    axes[4].set_title(r'\textbf{d}', loc='left')
+    axes[2].text(1000, .75, r'$\lambda = \frac{1}{4}$')
+    axes[3].text(1000, .75, r'$\lambda = 1$')
+    axes[4].text(1000, .75, r'$\lambda = 4$')
 
     # Put legend on the top left axis
     ax = axes[0]

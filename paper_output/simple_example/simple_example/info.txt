@@ -1,3 +1,0 @@
-Date: 2023-02-06 15:57:50.737073
-Commit 5782cc0a77709f58132e5b37d8d746cca73eea4a
-Command: scripts/fix_wrong_param_study/simple_example.py --no_datasets 10 --file_format pdf --no_datasets 10 --output paper_output/simple_example

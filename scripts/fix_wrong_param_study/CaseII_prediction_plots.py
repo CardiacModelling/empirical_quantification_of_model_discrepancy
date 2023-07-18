@@ -280,10 +280,12 @@ def create_axes(fig):
 
     axes = [fig.add_subplot(cell) for cell in gs]
 
-    axes[1].set_title(r'\textbf{a}', loc='left')
-    axes[2].set_title(r'\textbf{b}', loc='left')
-    axes[3].set_title(r'\textbf{c}', loc='left')
-    # axes[4].set_title(r'\textbf{d}', loc='left')
+    axes[1].set_title(r'\textbf{a}', loc='left', x=-.15)
+    axes[2].set_title(r'\textbf{b}', loc='left', x=-.15)
+    axes[3].set_title(r'\textbf{c}', loc='left', x=-.15)
+
+    axes[2].text(7000, -6.5, r'Beattie model')
+    axes[3].text(7000, -6.5, r'Wang model')
 
     # Put legend on the top left axis
     ax = axes[0]

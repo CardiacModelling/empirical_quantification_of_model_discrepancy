@@ -1,0 +1,3 @@
+Date: 2023-07-18 09:21:15.742965
+Commit 2fecaf58d0113abfbacf524c8fbaabe26cacbaea
+Command: scripts/fix_wrong_param_study/simple_example.py --no_chains 4 --chain_length 25000 --burn_in 5000 --optim_repeats 15 -o paper_output/

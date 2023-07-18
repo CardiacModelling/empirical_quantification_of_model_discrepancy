@@ -19,15 +19,16 @@ rc('figure', dpi=500)
 rc('axes', facecolor=[0]*4)
 
 plt.rcParams['legend.title_fontsize'] = '0'
-plt.rcParams['legend.framealpha'] = 0
-# plt.rcParams['legend.markerscale'] = 
+plt.rcParams['legend.framealpha'] = 1
+plt.rcParams['legend.markerscale'] = .8
+plt.rcParams.update({'legend.fontsize': 8})
 
 
 def create_axes(fig):
     gs = GridSpec(5, 4, figure=fig,
-                  height_ratios=[.55, .55, 1, 1, 1],
+                  height_ratios=[.5, .5, 1, 1, 1],
                   wspace=0.35,
-                  hspace=.5,
+                  hspace=.4,
                   bottom=0.07,
                   right=0.95,
                   top=0.97)
@@ -74,7 +75,7 @@ def create_axes(fig):
     for ax in (observation_time_axes[0][2], observation_time_axes[0][3],
                observation_time_axes[1][2], observation_time_axes[1][3]):
         ax.set_xlabel(r'$t$')
-        ax.xaxis.set_label_coords(0.5, -0.1)
+        ax.xaxis.set_label_coords(0.5, 0)
 
     prediction_plot_axs = [fig.add_subplot(gs[4, 0:2]),
                            fig.add_subplot(gs[4, 2:4])]
@@ -184,7 +185,7 @@ def main():
     argument_parser = argparse.ArgumentParser()
 
     argument_parser.add_argument('-o', '--output')
-    argument_parser.add_argument('--figsize', default=[4.685, 5.5], type=int,
+    argument_parser.add_argument('--figsize', default=[4.685, 6.75], type=int,
                                  nargs=2)
     argument_parser.add_argument('--no_datasets', default=10, type=int)
     argument_parser.add_argument('--sigma', default=0.01, type=float)
@@ -224,8 +225,8 @@ def main():
                           sigma=args.sigma, dash=True)
 
     for ax in scatter_axes + mcmc_axes:
-        ax.set_ylim([.95, 2.25])
-        ax.set_xlim([.15, 1.2])
+        ax.set_ylim([.9, 2.6])
+        ax.set_xlim([.15, 1.5])
 
     page_ax = fig.subplots()
     page_ax.set_xticks([])
@@ -241,11 +242,11 @@ def main():
     mcmc_axes[0].set_xlabel(r'$\theta_1$')
     mcmc_axes[1].set_xlabel(r'$\theta_1$')
 
-    scatter_axes[0].xaxis.set_label_coords(0.45, -0.1)
-    scatter_axes[1].xaxis.set_label_coords(0.45, -0.1)
+    scatter_axes[0].xaxis.set_label_coords(0.45, -0.15)
+    scatter_axes[1].xaxis.set_label_coords(0.45, -0.15)
 
-    mcmc_axes[0].xaxis.set_label_coords(0.45, -0.1)
-    mcmc_axes[1].xaxis.set_label_coords(0.45, -0.1)
+    mcmc_axes[0].xaxis.set_label_coords(0.45, -0.15)
+    mcmc_axes[1].xaxis.set_label_coords(0.45, -0.15)
 
     scatter_axes[0].set_xlabel(r'$\hat\theta_1$')
     scatter_axes[1].set_xlabel(r'$\hat\theta_1$')
@@ -321,7 +322,9 @@ def generate_data_and_fit(observation_axes, scatter_ax, mcmc_ax, prediction_ax,
     else:
         fitting_fname = os.path.join(args.results_dir, f"fitting_results_{sampling_frequency}.csv")
         estimates_df = pd.read_csv(fitting_fname)
-    make_scatter_plots(estimates_df, scatter_ax, sampling_frequency, legend=True)
+    make_scatter_plots(estimates_df, scatter_ax, sampling_frequency,
+                       legend=True)
+    scatter_ax.legend(loc='upper right')
     make_prediction_plots(estimates_df, datasets, prediction_ax)
 
     # Now use PINTS MCMC on the same problem
@@ -332,7 +335,7 @@ def generate_data_and_fit(observation_axes, scatter_ax, mcmc_ax, prediction_ax,
     if sampling_frequency <= 10:
         offset = -0.2
         y_pos = .9
-        observation_axes[0].set_title(r'\textbf a', loc='left', x=offset)
+        observation_axes[0].set_title(r'\textbf a', loc='left', x=2*offset)
         scatter_ax.set_title(r'\textbf c', loc='left', x=offset, y=y_pos)
         prediction_ax.set_title(r'\textbf g', loc='left', x=offset, y=y_pos)
         mcmc_ax.set_title(r'\textbf e', loc='left', x=offset, y=y_pos)
@@ -340,7 +343,7 @@ def generate_data_and_fit(observation_axes, scatter_ax, mcmc_ax, prediction_ax,
     else:
         offset = -0.075
         y_pos = 0.97
-        observation_axes[0].set_title(r'\textbf b', loc='left', x=offset,
+        observation_axes[0].set_title(r'\textbf b', loc='left', x=2*offset,
                                        y=y_pos)
         scatter_ax.set_title(r'\textbf d', loc='left', x=offset, y=y_pos)
         prediction_ax.set_title(r'\textbf h', loc='left', x=offset, y=y_pos)
@@ -446,7 +449,7 @@ def plot_mcmc_kde(mcmc_ax, samples_list, df, fitting_df, palette, sampling_frequ
     text_locs = [
         [.225, 1.6],
         [.41, 1.35],
-        [.75, 1.3],
+        [.725, 1.45],
         [1.1, 1.2],
         [0.65, 1.9],
     ]

@@ -127,7 +127,7 @@ def main():
     make_table(results_df)
     # do_prediction_error_plot(ax, prediction_df, results_df)
 
-    fig.savefig(os.path.join(output_dir, f"FigS1.{args.file_format}"))
+    fig.savefig(os.path.join(output_dir, f"Fig9.{args.file_format}"))
 
 
 def make_table(fitting_df, args, output_dir):
@@ -421,7 +421,7 @@ def do_prediction_error_plot(ax, prediction_df, fitting_df, output_dir, args):
         mean_midpoint_RMSEs.append(np.mean(midpoint_RMSEs))
 
     prediction_df['protocol'] = prediction_df.fitting_protocol
-    prediction_df.sort_by('protocol', inplace=True)
+    prediction_df.sort_values('protocol', inplace=True)
 
     sns.lineplot(
         data=prediction_df,
