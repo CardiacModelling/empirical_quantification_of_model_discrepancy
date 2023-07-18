@@ -1,16 +1,17 @@
-# Empirical quantification of predictive uncertainty due to model discrepancy by training with an ensemble of experimental designs: an application to hERG kinetics
-This repository contains the code necessary to reproduce the Figures presented in our publication: Empirical quantification of predictive uncertainty due to model discrepancy by training with an ensemble of experimental designs: an application to hERG kinetic, Joseph G. Shuttleworth, Chon Lok Lei, Dominic G. Whittaker, Simon P. Preston and Gary R. Mirams.
+# Empirical quantification of predictive uncertainty due to model discrepancy by training with an ensemble of experimental designs: an application to ion channel kinetics
+This repository contains the code necessary to reproduce the figures presented in our publication: _Empirical quantification of predictive uncertainty due to model discrepancy by training with an ensemble of experimental designs: an application to ion channel kinetics_, Joseph G. Shuttleworth, Chon Lok Lei, Dominic G. Whittaker, Simon P. Preston and Gary R. Mirams.
 
-This repository consists of package for the processing and analysis of patch-clamp electrophysiology data. Some of this functionality is used in the paper. The code ran to produce our Figures are the `scripts` directory, and the corresponding output is provided in the `output` directory.
+This repository consists of package for the processing and analysis of patch-clamp electrophysiology data. Some of this functionality is used in the paper. The code ran to produce our figures are the `scripts` directory, and the corresponding output is provided in the `output` directory.
 
 ## Installation
 
-It is recommended to install libraries and run scripts in a virtual environment to avoid version conflicts between different projects. In order to do this, follow these steps:
+It should work with Python versions >= 3.6 and < 3.10. It is recommended to install libraries and run scripts in a virtual environment to avoid version conflicts between different projects. In order to do this, follow these steps:
 - `virtualenv folder_name` or if you have both python 2 and 3: `virtualenv --python=python3 folder_name`. Should `virtualenv` not be recognised you may need to call it as `python -m virtualenv folder_name` or (`python -m virtualenv folder_name`). If that doesn't work you may need to install virtualenv first `pip install virtualenv`.
 - Activate the virtual environment using `source folder_name/bin/activate`. Simply type `deactivate` to exit the virtual environment at the end of a session.
 - Install [graphviz](https://graphviz.org/). On Ubuntu, this is done by running `sudo apt install graphviz graphviz-dev`. 
 - Install gcc and build essential: `sudo apt-get install gcc build-essential`
 - Install cmake: `sudo apt-get install cmake`
+- Install LaTeX (for plots): `sudo apt install texlive texlive-latex-extra texlive-fonts-recommended cm-super dvipng`
 - Install scikit-build: `pip install scikit-build`
 - Install the MarkovModels package by running `pip install -e .`.
 
