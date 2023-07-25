@@ -423,7 +423,8 @@ def fit_model(mm, data, times=None, starting_parameters=None,
               return_fitting_df=False, parallel=False,
               randomise_initial_guess=True, output_dir=None, solver_type=None,
               threshold=1e-11, iterations_unchanged=200,
-              no_conductance_boundary=False):
+              no_conductance_boundary=False,
+              rng=None):
     """
     Fit a MarkovModel to some dataset using pints.
 
@@ -445,6 +446,9 @@ def fit_model(mm, data, times=None, starting_parameters=None,
     returns: A pair containing the optimal parameters and the corresponding sum of square errors.
 
     """
+    if rng is None:
+        rng = np.random.default_rng()
+
     if not times:
         times = mm.times
 
@@ -534,7 +538,6 @@ def fit_model(mm, data, times=None, starting_parameters=None,
                 if conductance > max_conductance or conductance < min_conductance:
                     return False
 
-
             # Finally, ensure that all parameters > 0
             return np.all(parameters > 0)
 
@@ -546,8 +549,8 @@ def fit_model(mm, data, times=None, starting_parameters=None,
         def _sample_once(self, min_log_p, max_log_p):
             for i in range(1000):
                 p = starting_parameters.copy()
-                p[:-1] = 10**np.random.uniform(min_log_p, max_log_p,
-                                               starting_parameters[:-1].shape)
+                p[:-1] = 10**rng.uniform(min_log_p, max_log_p,
+                                         starting_parameters[:-1].shape)
 
                 if fix_parameters:
                     p = p[[i for i in range(len(starting_parameters)) if i not in
