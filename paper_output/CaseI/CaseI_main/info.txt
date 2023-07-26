@@ -1,3 +1,3 @@
-Date: 2023-07-18 22:12:33.251383
-Commit 874fbaa21751b19823302189295e5697fac7354b
+Date: 2023-07-19 12:25:15.524570
+Commit b32d6fbc0de113579a4a98cf26acf53db0e2cbc1
 Command: scripts/fix_wrong_param_study/CaseI_main.py paper_output/CaseI/fix_wrong_parameter/ --vlim 0.01 1 -o paper_output/CaseI

@@ -705,11 +705,14 @@ def scatter_plots(axes, results_df, params=['p1', 'p2'], col=0):
 
     xlim = scatter_axes[0].get_xlim()
     xlim = (min(0, xlim[0]), xlim[1])
+
     for ax in scatter_axes:
         ax.set_xlim(*xlim)
         ax.set_ylim(*ylim)
-    xticks = [tick for tick in scatter_axes[-1].get_xticks()]
-    scatter_axes[-1].set_xticks([0, .3])
+
+    for ax in scatter_axes:
+        ax.set_xticks([0, .3])
+
     scatter_axes[-1].set_xticklabels([0, 0.3])
 
 

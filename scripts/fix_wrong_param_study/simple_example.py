@@ -78,7 +78,7 @@ def create_axes(fig):
     for ax in (observation_time_axes[0][2], observation_time_axes[0][3],
                observation_time_axes[1][2], observation_time_axes[1][3]):
         ax.set_xlabel(r'$t$')
-        ax.xaxis.set_label_coords(0.5, 0)
+        ax.xaxis.set_label_coords(0.5, -0.4)
 
     prediction_plot_axs = [fig.add_subplot(gs[4, 0:2]),
                            fig.add_subplot(gs[4, 2:4])]
