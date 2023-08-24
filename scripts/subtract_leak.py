@@ -144,7 +144,7 @@ def main():
                 failed = True
                 break
             elif not args.ignore_QC7:
-                if row['passed QC7']:
+                if not row['passed QC7']:
                     failed = True
                     break
             elif args.selection_file:
@@ -453,6 +453,7 @@ def subtract_leak(well, protocol):
             lst = []
             for i, (j, voltage) in enumerate(first_step):
                 if j - i > first_step[0][0]:
+                    # Moved paste the first step
                     break
                 lst.append(j)
             # Ignore first few timesteps
