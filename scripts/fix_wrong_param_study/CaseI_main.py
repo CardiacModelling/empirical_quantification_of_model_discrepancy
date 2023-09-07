@@ -55,7 +55,7 @@ def main():
     parser.add_argument('--no_chains', '-N', default=0, help='mcmc chains to run', type=int)
     parser.add_argument('--chain_length', '-l', default=500, help='mcmc chains to run', type=int)
     parser.add_argument('--figsize', '-f', nargs=2, default=[4.685, 6.5])
-    parser.add_argument('--figsize2', nargs=2, default=[4.685, 2.5])
+    parser.add_argument('--figsize2', nargs=2, default=[4.685, 3.25])
     parser.add_argument('--use_parameter_file')
     parser.add_argument('-i', '--ignore_protocols', nargs='+',
                         default=['longap'])
@@ -175,7 +175,7 @@ def main():
     # Updates prediction_df to include longap data
     prediction_df = plot_heatmaps(axes, prediction_df)
 
-    data = pd.read_csv(os.path.join(output_dir, f'synthetic-longap-0.csv'))
+    data = pd.read_csv(os.path.join(output_dir, 'synthetic-longap-0.csv'))
 
     do_prediction_plots(axes, results_df, args.prediction_protocol, data)
 
@@ -192,10 +192,8 @@ def main():
 
 def do_prediction_plots(axes, results_df, prediction_protocol, data):
     times = pd.read_csv(os.path.join(output_dir,
-                                          f'synthetic-longap-times.csv'))['time'].values.astype(np.float64)
+                                     'synthetic-longap-times.csv'))['time'].values.astype(np.float64)
     current = data['current'].astype(np.float64).values
-
-    # print(current)
 
     vals = sorted(results_df[args.fixed_param].unique())
 
@@ -379,8 +377,6 @@ def plot_heatmaps(axes, prediction_df):
                 len(sub_df.index)
                 row = sub_df.head(1)
                 params = row[parameter_labels].values.flatten().astype(np.float64)
-
-                print(params)
 
                 # Predict longap protocol
                 prediction = prediction_solver(params)
