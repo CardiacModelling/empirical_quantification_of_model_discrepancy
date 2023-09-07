@@ -510,11 +510,13 @@ def fit_model(mm, data, times=None, starting_parameters=None,
             rates_1 = rates_func(parameters, Vs[0])
             rates_2 = rates_func(parameters, Vs[1])
 
+            max_transition_rates = np.max(np.vstack([rates_1, rates_2]), axis=0)
+
             # Boundaries taken from 'Four Ways to Fit an Ion Channel Model'
-            if min(rates_1.max(), rates_2.max()) < 1.67e-5:
+            if not np.all(max_transition_rates > 1.67e-5):
                 return False
 
-            if max(rates_1.max(), rates_2.max()) > 1e3:
+            if not np.all(max_transition_rates < 1e3):
                 return False
 
             if max([p for i, p in enumerate(parameters) if i != mm.GKr_index]) > 1e5:
