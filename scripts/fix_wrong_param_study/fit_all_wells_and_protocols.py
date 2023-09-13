@@ -24,27 +24,19 @@ def fit_func(protocol, well, model_class, default_parameters=None, E_rev=None,
              randomise_initial_guess=True, prefix="", repeats=1):
     this_output_dir = os.path.join(output_dir, f"{prefix}{protocol}_{well}")
 
-    try:
-        res_df = common.fit_well_data(model_class, well, protocol,
-                                      args.data_directory, args.max_iterations,
-                                      output_dir=this_output_dir,
-                                      default_parameters=default_parameters,
-                                      removal_duration=args.removal_duration,
-                                      repeats=repeats,
-                                      infer_E_rev=False,
-                                      experiment_name=args.experiment_name,
-                                      E_rev=E_rev,
-                                      randomise_initial_guess=randomise_initial_guess,
-                                      solver_type=args.solver_type,
-                                      threshold=1e-8,
-                                      )
-    except Exception:
-        res_df = pd.DataFrame(np.full((1, len(model_class().get_default_parameters())), np.nan),
-                                       columns=model_class().get_parameter_labels())
-        res_df['iterations'] = 0
-        res_df['CPU_time'] = 0
-        res_df['score'] = np.nan
-
+    res_df = common.fit_well_data(model_class, well, protocol,
+                                  args.data_directory, args.max_iterations,
+                                  output_dir=this_output_dir,
+                                  default_parameters=default_parameters,
+                                  removal_duration=args.removal_duration,
+                                  repeats=repeats,
+                                  infer_E_rev=False,
+                                  experiment_name=args.experiment_name,
+                                  E_rev=E_rev,
+                                  randomise_initial_guess=randomise_initial_guess,
+                                  solver_type=args.solver_type,
+                                  threshold=1e-8,
+                                  )
     res_df['well'] = well
     res_df['protocol'] = protocol
 
