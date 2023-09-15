@@ -1,25 +1,22 @@
 #
-# MarkovModels setuptools script
+# markovmodels setuptools script
 #
-import os
 
 from setuptools import find_packages, setup
-
 
 # Load text for description
 with open('README.md') as f:
     readme = f.read()
 
-# Load version number
-#with open(os.path.join('MarkovModels', 'version.txt'), 'r') as f:
- #   version = f.read()
+# Load version number with open(os.path.join('markovmodels', 'version.txt'),
+# 'r') as f: version = f.read()
 
-version = "0"
+version = "0.1.0"
 
 # Go!
 setup(
     # Module name (lowercase)
-    name='MarkovModels',
+    name='markovmodels',
 
     version=version,
     description='markov models for cardiac modelling',
@@ -29,7 +26,7 @@ setup(
     author_email='joseph.shuttleworth@nottingham.ac.uk',
     maintainer='Joseph Shuttleworth',
     maintainer_email='joseph.shuttleworth@nottingham.ac.uk',
-    url='https://github.com/joeyshuttleworth/MarkovModels',
+    url='https://github.com/joeyshuttleworth/markovmodels',
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: BSD License",
@@ -38,13 +35,13 @@ setup(
 
     # Packages to include
     packages=find_packages(
-        include=('MarkovModels', 'MarkovModels.*')),
+        include=('markovmodels', 'markovmodels.*')),
 
     # Include non-python files (via MANIFEST.in)
     include_package_data=True,
 
     # Required Python version
-    python_requires='>=3.6',
+    python_requires='>=3.8',
 
     # List of dependencies
     install_requires=[
@@ -58,10 +55,9 @@ setup(
         'regex>=2022.9.13',
         'myokit>=1.33.0',
         'seaborn>=0.12.0',
-        'markov_builder @ git+https://git@github.com/CardiacModelling/Markov-builder@master',
+        'markov_builder @ git+https://git@github.com/CardiacModelling/Markov-builder@thirty_models',
         'scikit-build>=0.16.7',
-        'NumbaIDA @ git+https://git@github.com/joeyshuttleworth/NumbaIDA@master',
-        'numbalsoda @ git+https://git@github.com/NicholasWogan/NumbaLSODA@main'
+        'numbalsoda @ git+https://git@github.com/NicholasWogan/numbalsoda@main'
     ],
     extras_require={
         'test': [

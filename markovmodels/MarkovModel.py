@@ -7,10 +7,8 @@ import time
 from numbalsoda import lsoda_sig, lsoda, dop853
 from numba import njit, cfunc, literal_unroll
 import numba as nb
-import NumbaIDA
 
 from .common import calculate_reversal_potential
-from NumbaIDA import ida_sig, ida
 
 
 class MarkovModel:
@@ -28,9 +26,32 @@ class MarkovModel:
     def get_parameter_labels(self):
         return self.parameter_labels.copy()
 
-    def __init__(self, symbols, A, B, rates_dict, times, voltage=None,
+    def __init__(self, symbols, A, B, rates_dict, times=None, voltage=None,
                  tolerances=(1e-8, 1e-8), Q=None, protocol_description=None,
-                 name=None, E_rev=None):
+                 name=None, E_rev=None, default_parameters=None,
+                 parameter_labels=None, GKr_index: int = None,
+                 open_state_index: int = None, transformations=None,
+                 state_labels: str = None):
+
+        self.name = name
+
+        if state_labels:
+            self.state_labels = state_labels
+
+        if GKr_index:
+            self.GKr_index = GKr_index
+
+        if open_state_index is not None:
+            self.open_state_index = open_state_index
+
+        self.n_states = A.shape[0] + 1
+
+        if default_parameters is not None:
+            self.default_parameters = default_parameters
+
+        if parameter_labels:
+            self.parameter_labels = parameter_labels
+
         if E_rev is None:
             self.E_rev = calculate_reversal_potential()
         else:
@@ -38,7 +59,10 @@ class MarkovModel:
 
         self.Q = sp.sympify(Q)
 
-        self.transformations = None
+        self.transformations = transformations
+
+        if voltage is not None:
+            self.holding_potential = voltage(0)
 
         self.model_name = name
 
@@ -62,7 +86,7 @@ class MarkovModel:
         self.A = A
         self.B = B
 
-        self.rhs_expr = (A @ self.y + B).subs(rates_dict)
+        self.rhs_expr = (A @ sp.Matrix(self.y[:A.shape[0], :]) + B).subs(rates_dict)
 
         if voltage is not None:
             self.voltage = voltage
@@ -81,18 +105,23 @@ class MarkovModel:
         # Set the initial conditions of the model and the initial sensitivities
         # by finding the steady state of the model
 
-        # Can be found analytically
+        self.compute_steady_state_expressions()
+
+        self.auxiliary_function = self.define_auxiliary_function()
+
+    def define_auxiliary_function(self):
+        return sp.lambdify((self.y, self.p, self.v), self.auxiliary_expression)
+
+    def compute_steady_state_expressions(self):
+
         self.rhs_inf_expr_rates = -self.A.LUsolve(self.B)
-
-        self.rhs_inf_expr = self.rhs_inf_expr_rates.subs(rates_dict)
-
+        self.rhs_inf_expr = self.rhs_inf_expr_rates.subs(self.rates_dict)
         self.rhs_inf = nb.njit(sp.lambdify((self.p, self.v), self.rhs_inf_expr,
                                            modules='numpy', cse=True))
-
-        self.auxillary_expression = self.p[self.GKr_index] * \
+        self.auxiliary_expression = self.p[self.GKr_index] * \
             self.y[self.open_state_index] * (self.v - self.E_rev)
 
-        self.current_inf_expr = self.auxillary_expression.subs(self.y, self.rhs_inf)
+        self.current_inf_expr = self.auxiliary_expression.subs(self.y, self.rhs_inf)
         self.current_inf = lambda p: np.array(self.current_inf_expr.subs(
             dict(zip(self.p, p))).evalf()).astype(np.float64)
 
@@ -107,7 +136,7 @@ class MarkovModel:
                     i + 'dp%d' %
                     j) for j in range(
                     self.n_params)] for i in range(
-                self.n_state_vars)]
+                        self.no_states)]
 
         # Append 1st order sensitivities to inputs
         for i in range(self.n_params):
@@ -138,7 +167,7 @@ class MarkovModel:
          for j in range(self.n_params)]
 
         # dI/do
-        self.dIdo = sp.diff(self.auxillary_expression, self.y[self.open_state_index])
+        self.dIdo = sp.diff(self.auxiliary_expression, self.y[self.open_state_index])
 
         self.func_S1 = sp.lambdify(inputs, fS1)
         # Define number of 1st order sensitivities
@@ -201,7 +230,7 @@ class MarkovModel:
         return steady_state
 
     def get_no_states(self):
-        return self.n_states
+        return self.A.shape[0] + 1
 
     def get_analytic_solution(self):
         """get_analytic_solution
@@ -230,33 +259,85 @@ class MarkovModel:
         # solution = (C@K@np.exp(times*eigenvalues[:,None]) + X2[:, None]).T
         return P, K, D, X2, P.det()
 
-    def get_analytic_solution_func(self, njitted=True, tol=0):
+    def get_analytic_solution_func(self, njitted=True, cond_threshold=None):
 
         rates_func = self.get_rates_func(njitted=njitted)
-
-        X_inhom = self.A.LUsolve(-self.B)
-        X_inhom_func = njit(sp.lambdify((self.rates_dict.keys(),), X_inhom), fastmath=True)
-
-        A_func = njit(sp.lambdify((self.rates_dict.keys(),), self.A), fastmath=True)
 
         times = self.times
         voltage = self.voltage(0)
         p = self.get_default_parameters()
         y0 = self.rhs_inf(p, voltage).flatten()
 
-        def analytic_solution_func(times=times, voltage=voltage, p=p, y0=y0):
-            rates = rates_func(p, voltage).flatten()
-            X2 = X_inhom_func(rates)
-            A = A_func(rates)
-            D, P = np.linalg.eig(A)
+        if cond_threshold is None:
+            cond_threshold = 1e5
 
-            y0 = np.expand_dims(y0, -1)
+        if y0.shape[0] == 1:
+            A_func = sp.lambdify((self.rates_dict.keys(),), self.A[0, 0])
+            B_func = sp.lambdify((self.rates_dict.keys(),), self.B[0, 0])
 
-            K = np.diag(np.linalg.solve(P, (y0 - X2).flatten()))
+            if njitted:
+                A_func = njit(A_func)
+                B_func = njit(B_func)
+            # Scalar case
 
-            solution = (P @ K @  np.exp(np.outer(D, times))).T + X2.T
+            def analytic_solution_func_scalar(times=times, voltage=voltage, p=p, y0=y0):
+                rates = rates_func(p, voltage).flatten()
+                y0 = y0[0]
+                a = A_func(rates)
 
-            return solution, True
+                if a < 1 / cond_threshold:
+                    return np.full((times.shape[0], 1), np.nan), False
+
+                b = B_func(rates)
+                sol = np.expand_dims((y0 + b/a) * np.exp(a * times) - b/a, -1)
+                return sol, True
+
+            analytic_solution_func = analytic_solution_func_scalar
+
+        else:
+            A_func = sp.lambdify((self.rates_dict.keys(),), self.A)
+            B_func = sp.lambdify((self.rates_dict.keys(),), self.B)
+
+            if njitted:
+                A_func = njit(A_func)
+                B_func = njit(B_func)
+                # Q_func = njit(Q_func)
+
+            def analytic_solution_func_matrix(times=times, voltage=voltage, p=p, y0=y0):
+                rates = rates_func(p, voltage).flatten()
+                _A = A_func(rates)
+                _B = B_func(rates).flatten()
+
+                try:
+                    cond_A = np.linalg.norm(_A, 2) * np.linalg.norm(np.linalg.inv(_A), 2)
+                except Exception:
+                    return np.full((times.shape[0], y0.shape[0]), np.nan), False
+
+                if cond_A > cond_threshold:
+                    print("WARNING: cond_A = ", cond_A, " > ", cond_threshold)
+                    print("matrix is poorly conditioned", cond_A, cond_threshold)
+                    return np.full((times.shape[0], y0.shape[0]), np.nan), False
+
+                D, P = np.linalg.eig(_A)
+
+                # Compute condition number doi:10.1137/S00361445024180
+                try:
+                    cond_P = np.linalg.norm(P, 2) * np.linalg.norm(np.linalg.inv(P), 2)
+                except Exception:
+                    return np.full((times.shape[0], y0.shape[0]), np.nan), False
+
+                if cond_P > cond_threshold:
+                    print("WARNING: cond_P = ", cond_P, " > ", cond_threshold)
+                    print("matrix is almost defective", cond_P, cond_threshold)
+                    return np.full((times.shape[0], y0.shape[0]), np.nan), False
+
+                X2 = -np.linalg.solve(_A, _B).flatten()
+
+                K = np.diag(np.linalg.solve(P, (y0 - X2).flatten()))
+                solution = (P @ K @  np.exp(np.outer(D, times))).T + X2.T
+
+                return solution, True
+            analytic_solution_func = analytic_solution_func_matrix
 
         return analytic_solution_func if not njitted else njit(analytic_solution_func)
 
@@ -472,127 +553,10 @@ class MarkovModel:
 
         return njit(rates_func) if njitted else rates_func
 
-    def make_forward_solver_states(self, atol=None, rtol=None,
-                                   protocol_description=None, njitted=True,
-                                   solver_type='lsoda'):
-        # Solver can be either lsoda or dop853
-        # For IDA solver use make_IDA_solver_states
-
-        if atol is None:
-            atol = self.solver_tolerances[0]
-        if rtol is None:
-            rtol = self.solver_tolerances[1]
-
-        crhs = self.get_cfunc_rhs()
-        crhs_ptr = crhs.address
-        rhs_inf = self.rhs_inf
-
-        voltage = self.voltage
-
-        # Number of state variables
-        no_states = self.get_no_states() - 1
-
-        times = self.times
-
-        if protocol_description is None:
-            if self.protocol_description is None:
-                protocol_description = ((self.times[0], self.times[1],
-                                         -80, -80),)
-            else:
-                protocol_description = self.protocol_description
-
-        p = self.get_default_parameters()
-
-        eps = np.finfo(float).eps
-
-        start_times = [val[0] for val in protocol_description]
-        intervals = tuple(zip(start_times[:-1], start_times[1:]))
-
-        def forward_solver(p=p, times=times, atol=atol, rtol=rtol):
-            y0 = rhs_inf(p, voltage(0)).flatten()
-            solution = np.full((len(times), no_states), np.nan)
-            solution[0, :] = y0
-
-            for i, (tstart, tend) in enumerate(intervals):
-                if i == len(intervals) - 1:
-                    tend = times[-1] + 1
-                istart = np.argmax(times > tstart)
-                iend = np.argmax(times > tend)
-
-                if iend == 0:
-                    iend = len(times)
-
-                step_times = np.full(iend-istart + 2, np.nan)
-                if iend == len(times):
-                    step_times[1:-1] = times[istart:]
-                else:
-                    step_times[1:-1] = times[istart:iend]
-
-                step_times[0] = tstart
-                step_times[-1] = tend
-
-                step_sol = np.full((len(step_times), no_states), np.nan)
-
-                if step_times[1] - tstart < 2 * eps * np.abs(step_times[1]):
-                    start_int = 1
-                    step_sol[0, :] = y0
-                else:
-                    start_int = 0
-
-                if tend - step_times[-1] < 2 * eps * np.abs(tend):
-                    end_int = -1
-                else:
-                    end_int = None
-
-                if solver_type == 'lsoda':
-                    step_sol[start_int: end_int], _ = lsoda(crhs_ptr, y0,
-                                                            step_times[start_int:end_int],
-                                                            data=p, rtol=rtol,
-                                                            atol=atol,
-                                                            exit_on_warning=True)
-                else:
-                    step_sol[start_int: end_int], _ = dop853(crhs_ptr, y0,
-                                                             step_times[start_int:end_int],
-                                                             data=p, rtol=rtol,
-                                                             atol=atol)
-
-                if end_int == -1:
-                    step_sol[-1, :] = step_sol[-2, :]
-
-                if iend == len(times):
-                    solution[istart:, ] = step_sol[1:-1, ]
-                    break
-
-                else:
-                    y0 = step_sol[-1, :]
-                    solution[istart:iend, ] = step_sol[1:-1, ]
-
-            return solution
-
-        return njit(forward_solver) if njitted else forward_solver
-
-    def get_cfunc_rhs(self):
-        rhs = nb.njit(self.func_rhs)
-        voltage = self.voltage
-
-        ny = len(self.state_labels) - 1
-        np = len(self.get_default_parameters())
-
-        @cfunc(lsoda_sig)
-        def crhs(t, y, dy, p):
-            y = nb.carray(y, ny)
-            dy = nb.carray(dy, ny)
-            p = nb.carray(p, np)
-            res = rhs(y,
-                      p,
-                      voltage(t)).flatten()
-            for i in range(ny):
-                dy[i] = res[i]
-
-        return crhs
-
-    def make_hybrid_solver_states(self, protocol_description=None, njitted=False, analytic_solver=None,
-                                  strict=True):
+    def make_hybrid_solver_states(self, protocol_description=None,
+                                  njitted=False, analytic_solver=None,
+                                  strict=True, cond_threshold=None, atol=None,
+                                  rtol=None, hybrid=True):
 
         if protocol_description is None:
             if self.protocol_description is None:
@@ -606,11 +570,17 @@ class MarkovModel:
         no_states = len(self.B)
 
         if not analytic_solver:
-            analytic_solver = self.get_analytic_solution_func(njitted=njitted)
+            analytic_solver = self.get_analytic_solution_func(njitted=njitted,
+                                                              cond_threshold=cond_threshold)
 
         rhs_inf = self.rhs_inf
         voltage = self.voltage
-        atol, rtol = self.solver_tolerances
+
+        if atol is None:
+            atol = self.solver_tolerances[0]
+        if rtol is None:
+            rtol = self.solver_tolerances[1]
+
         times = self.times
 
         p = self.get_default_parameters()
@@ -619,7 +589,8 @@ class MarkovModel:
         start_times = [val[0] for val in protocol_description]
         intervals = tuple(zip(start_times[:-1], start_times[1:]))
 
-        def hybrid_forward_solve(p=p, times=times, atol=atol, rtol=rtol, strict=strict):
+        def hybrid_forward_solve(p=p, times=times, atol=atol, rtol=rtol,
+                                 strict=strict, hybrid=hybrid):
             y0 = rhs_inf(p, voltage(.0)).flatten()
 
             solution = np.full((len(times), no_states), np.nan)
@@ -642,8 +613,8 @@ class MarkovModel:
                 vend = protocol_description[i][3]
 
                 step_times = np.full(iend-istart + 2, np.nan)
-
                 step_times = np.full(iend-istart + 2, np.nan)
+
                 if iend == len(times):
                     step_times[1:-1] = times[istart:]
                 else:
@@ -655,13 +626,9 @@ class MarkovModel:
                 analytic_success = False
                 step_sol = np.full((len(step_times), no_states), np.nan)
 
-                if vstart == vend:
+                if vstart == vend and hybrid:
                     step_sol[:, :], analytic_success = analytic_solver(step_times - tstart,
                                                                        vstart, p, y0)
-
-                    if strict and not analytic_success:
-                        solution[:, :] = np.nan
-                        return solution
 
                 if not analytic_success:
                     step_times[0] = tstart
@@ -673,19 +640,24 @@ class MarkovModel:
                     else:
                         start_int = 0
 
+                    t_offset = tstart
+                    data = np.append(p, t_offset)
                     if tend - step_times[-1] < 2 * eps * np.abs(tend):
                         end_int = -1
                         step_sol[start_int: end_int], _ = lsoda(crhs_ptr, y0,
-                                                                step_times[start_int:end_int],
-                                                                data=p, rtol=rtol,
+                                                                step_times[start_int:end_int] - step_times[0],
+                                                                data=data, rtol=rtol,
                                                                 atol=atol,
                                                                 exit_on_warning=True)
                     else:
                         end_int = 0
                         step_sol[start_int:], _ = lsoda(crhs_ptr, y0,
-                                                        step_times[start_int:],
-                                                        data=p, rtol=rtol,
+                                                        step_times[start_int:] - step_times[0],
+                                                        data=data, rtol=rtol,
                                                         atol=atol, exit_on_warning=True)
+
+                if not np.all(np.isfinite(step_sol[start_int:end_int])):
+                    return np.full(solution.shape, np.nan)
 
                 if end_int == -1:
                     step_sol[-1, :] = step_sol[-2, :]
@@ -702,19 +674,59 @@ class MarkovModel:
 
         return njit(hybrid_forward_solve) if njitted else hybrid_forward_solve
 
+    def make_forward_solver_of_type(self, solver_type, **kws):
+        if solver_type is None:
+            solver = self.make_forward_solver_current(**kws)
+        elif solver_type == 'default':
+            solver = self.make_forward_solver_current(**kws)
+        elif solver_type == 'hybrid':
+            solver = self.make_hybrid_solver_current(**kws)
+        elif solver_type == 'ida':
+            solver = self.make_ida_solver_current(**kws)
+        elif solver_type == 'dop853':
+            solver = self.make_forward_solver_current(solver_type='dop853', **kws)
+        else:
+            raise Exception(f"Invalid solver type: {solver_type}")
+        return solver
+
+    def get_cfunc_rhs(self):
+        rhs = nb.njit(self.func_rhs)
+        voltage = self.voltage
+
+        ny = len(self.state_labels) - 1
+        np = len(self.get_default_parameters())
+
+        @cfunc(lsoda_sig)
+        def crhs(t, y, dy, data):
+            y = nb.carray(y, ny)
+            dy = nb.carray(dy, ny)
+            data = nb.carray(data, np + 1)
+
+            p = data[:-1]
+            t_offset = data[-1]
+
+            res = rhs(y,
+                      p,
+                      voltage(t, offset=t_offset)).flatten()
+
+            dy[:] = res
+
+        return crhs
+
     def make_hybrid_solver_current(self, protocol_description=None,
-                                   njitted=True,
-                                   analytic_solver=None,
-                                   strict=True):
+                                   njitted=True, strict=True,
+                                   cond_threshold=None, atol=None, rtol=None,
+                                   hybrid=True):
         hybrid_solver =\
             self.make_hybrid_solver_states(protocol_description=protocol_description,
-                                           njitted=njitted,
-                                           analytic_solver=analytic_solver,
-                                           strict=strict)
+                                           njitted=njitted, strict=strict,
+                                           cond_threshold=cond_threshold,
+                                           atol=atol, rtol=rtol, hybrid=hybrid)
 
-        open_index = self.open_state_index
-        E_rev = self.E_rev
-        gkr_index = self.GKr_index
+        auxiliary_function = self.auxiliary_function
+
+        if njitted:
+            auxiliary_function = njit(auxiliary_function)
 
         times = self.times
 
@@ -723,56 +735,37 @@ class MarkovModel:
 
         params = self.get_default_parameters()
 
-        def hybrid_forward_solve(p=params, times=times, atol=atol, rtol=rtol):
+        def hybrid_forward_solve(p=params, times=times, atol=atol, rtol=rtol,
+                                 hybrid=hybrid):
             voltages = np.empty(len(times))
             for i in range(len(times)):
                 voltages[i] = voltage_func(times[i])
 
-            states = hybrid_solver(p, times=times)
-            return ((states[:, open_index] * p[gkr_index]) * (voltages - E_rev)).flatten()
+            states = hybrid_solver(p, times=times, hybrid=hybrid, atol=atol, rtol=rtol)
+
+            return (auxiliary_function(states.T, p, voltages)).flatten()
 
         return njit(hybrid_forward_solve) if njitted else hybrid_forward_solve
 
-    def make_forward_solver_current(self, voltages=None, atol=None, rtol=None,
-                                    njitted=True, protocol_description=None,
-                                    solver_type='lsoda'):
+    def make_forward_solver_current(self, voltages=None, njitted=True,
+                                    protocol_description=None,
+                                    solver_type='lsoda', atol=None, rtol=None):
+
+        solver_states = self.make_hybrid_solver_states(njitted=njitted,
+                                                       protocol_description=protocol_description,
+                                                       atol=atol, rtol=rtol,
+                                                       hybrid=False)
+
+        return self.make_solver_current(solver_states, voltages=voltages,
+                                        atol=atol, rtol=rtol, njitted=njitted)
+
+    def make_solver_current(self, solver_states, voltages=None, atol=None,
+                            rtol=None, njitted=False):
         if atol is None:
             atol = self.solver_tolerances[0]
 
         if rtol is None:
             rtol = self.solver_tolerances[1]
-
-        solver_states = self.make_forward_solver_states(atol=atol, rtol=rtol,
-                                                        njitted=njitted,
-                                                        protocol_description=protocol_description,
-                                                        solver_type=solver_type)
-
-        gkr_index = self.GKr_index
-        open_index = self.open_state_index
-        E_rev = self.E_rev
-
-        if voltages is None:
-            voltages = self.GetVoltage()
-
-        times = self.times
-        params = self.get_default_parameters()
-
-        def forward_solver(p=params, times=times, voltages=voltages, atol=atol, rtol=rtol):
-            states = solver_states(p, times, atol, rtol)
-            return ((states[:, open_index] * p[gkr_index]) * (voltages - E_rev)).flatten()
-
-        return njit(forward_solver) if njitted else forward_solver
-
-    def make_solver_current(self, solver_states, voltages=None, atol=None, rtol=None, njitted=False):
-        if atol is None:
-            atol = self.solver_tolerances[0]
-
-        if rtol is None:
-            rtol = self.solver_tolerances[1]
-
-        gkr_index = self.GKr_index
-        open_index = self.open_state_index
-        E_rev = self.E_rev
 
         if voltages is None:
             voltages = self.GetVoltage()
@@ -781,9 +774,11 @@ class MarkovModel:
 
         default_parameters = self.get_default_parameters()
 
+        auxiliary_function = self.auxiliary_function
+
         def forward_solver(p=default_parameters, times=times, voltages=voltages, atol=atol, rtol=rtol):
             states = solver_states(p, times, atol, rtol)
-            return ((states[:, open_index] * p[gkr_index]) * (voltages - E_rev)).flatten()
+            return (auxiliary_function(states.T, p, voltages)).flatten()
 
         return forward_solver
 
@@ -926,9 +921,6 @@ class MarkovModel:
         if times is None:
             times = self.times
         return self.make_forward_solver_current(njitted=False)(p, times)
-
-    def GetStateVariables(self, p=None):
-        return self.make_forward_solver_states()()
 
     def GetVoltage(self, times=None):
         """

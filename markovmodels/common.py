@@ -10,6 +10,7 @@ import pandas as pd
 import math
 import os
 import pints
+import numba
 import pints.plot
 import regex as re
 import uuid
@@ -229,7 +230,6 @@ def remove_indices(lst, indices_to_remove):
     # Ensure intervals don't overlap
     for interval1, interval2 in zip(indices_to_remove[:-1, :], indices_to_remove[1:, :]):
         if interval1[1] > interval2[0]:
-            # print('overlapping')
             interval1[1] = interval2[1]
             interval2[0] = -1
             interval2[1] = -1
@@ -401,12 +401,13 @@ def get_ramp_protocol_from_csv(protocol_name: str, directory=None,
     protocol = tuple(lst)
 
     @njit
-    def protocol_func(t: np.float64):
+    def protocol_func(t: np.float64, offset=0.0):
+        t = t + offset
         if t <= 0 or t >= protocol[-1][1]:
             return holding_potential
 
         for i in range(len(protocol)):
-            if t <= protocol[i][1]:
+            if t < protocol[i][1]:
                 # ramp_start = protocol[i][0]
                 if protocol[i][3] - protocol[i][2] != 0:
                     return protocol[i][2] + (t - protocol[i][0]) * (protocol[i][3] - protocol[i][2]) / (protocol[i][1] - protocol[i][0])
@@ -422,7 +423,9 @@ def fit_model(mm, data, times=None, starting_parameters=None,
               fix_parameters=[], max_iterations=None, subset_indices=None,
               method=pints.CMAES, solver=None, log_transform=True, repeats=1,
               return_fitting_df=False, parallel=False,
-              randomise_initial_guess=True, output_dir=None, solver_type=None):
+              randomise_initial_guess=True, output_dir=None, solver_type=None,
+              no_conductance_boundary=False,
+              rng=None):
     """
     Fit a MarkovModel to some dataset using pints.
 
@@ -447,7 +450,8 @@ def fit_model(mm, data, times=None, starting_parameters=None,
     if not times:
         times = mm.times
 
-    print('starting parameters', starting_parameters)
+    if rng is None:
+        rng = np.random.default_rng()
 
     if log_transform:
         # Assume that the conductance is the last parameter and that the parameters are arranged included
@@ -481,90 +485,16 @@ def fit_model(mm, data, times=None, starting_parameters=None,
         return starting_parameters, np.inf
 
     if solver is None:
-        if solver_type is None:
-            solver = mm.make_forward_solver_current()
-        elif solver_type == 'default':
-            solver = mm.make_forward_solver_current()
-        elif solver_type == 'hybrid':
-            solver = mm.make_hybrid_solver_current()
-        elif solver_type == 'ida':
-            solver = mm.make_ida_solver_current()
-        elif solver_type == 'dop853':
-            solver = mm.make_forward_solver_current(solver_type='dop853')
-        else:
-            raise Exception(f"Invalid solver type: {solver_type}")
+        try:
+            solver = mm.make_forward_solver_of_type(solver_type)
+        except numba.core.errors.TypingError as exc:
+            logging.warning(f"unable to make nopython forward solver {str(exc)}")
+            solver = mm.make_forward_solver_of_type(solver_type, njitted=False)
 
     if subset_indices is None:
         subset_indices = np.array(list(range(len(mm.times))))
 
     fix_parameters = np.unique(fix_parameters)
-
-    class Boundaries(pints.Boundaries):
-        def __init__(self, parameters, fix_parameters=None):
-            self.fix_parameters = fix_parameters
-            self.parameters = parameters
-
-        def check(self, parameters):
-            parameters = parameters.copy()
-            if self.fix_parameters:
-                for i in np.unique(self.fix_parameters):
-                    parameters = np.insert(parameters, i, starting_parameters[i])
-
-            # rates function
-            rates_func = mm.get_rates_func(njitted=False)
-
-            Vs = [-120, 60]
-            rates_1 = rates_func(parameters, Vs[0])
-            rates_2 = rates_func(parameters, Vs[1])
-
-            if max(rates_1.max(), rates_2.max()) > 1e4:
-                return False
-
-            if min(rates_1.min(), rates_2.min()) < 1e-8:
-                return False
-
-            if max([p for i, p in enumerate(parameters) if i != mm.GKr_index]) > 1e5:
-                return False
-
-            if min([p for i, p in enumerate(parameters) if i != mm.GKr_index]) < 1e-7:
-                return False
-
-            # Ensure that all parameters > 0
-            return np.all(parameters > 0)
-
-        def n_parameters(self):
-            return mm.get_no_parameters() - \
-                len(self.fix_parameters) if self.fix_parameters is not None\
-                else mm.get_no_parameters()
-
-        def _sample_once(self, min_log_p, max_log_p):
-            for i in range(1000):
-                p = np.empty(starting_parameters.shape)
-                p[-1] = starting_parameters[-1]
-                p[:-1] = 10**np.random.uniform(min_log_p, max_log_p,
-                                               starting_parameters[:-1].shape)
-
-                if fix_parameters:
-                    p = p[[i for i in range(len(starting_parameters)) if i not in
-                          self.fix_parameters]]
-
-                # Check this lies in boundaries
-                if self.check(p):
-                    return p
-            logging.warning("Couldn't sample from boundaries")
-            return np.NaN
-
-        def sample(self, n=1):
-            min_log_p, max_log_p = [-7, 1]
-
-            no_parameters = len(starting_parameters) if not self.fix_parameters\
-                else len(starting_parameters) - len(fix_parameters)
-
-            ret_vec = np.full((n, no_parameters), np.nan)
-            for i in range(n):
-                ret_vec[i, :] = self._sample_once(min_log_p, max_log_p)
-
-            return ret_vec
 
     class PintsWrapper(pints.ForwardModelS1):
         def __init__(self, mm, parameters, fix_parameters=None):
@@ -615,19 +545,24 @@ def fit_model(mm, data, times=None, starting_parameters=None,
         unfixed_indices = list(range(len(starting_parameters)))
         params_not_fixed = starting_parameters
 
-    if randomise_initial_guess:
-        initial_guess_dist = Boundaries(starting_parameters, fix_parameters)
-        starting_parameter_sets = []
+    boundaries = fitting_boundaries(starting_parameters, mm,
+                                    fix_parameters)
 
-    boundaries = Boundaries(starting_parameters, fix_parameters)
+    if randomise_initial_guess:
+        initial_guess_dist = fitting_boundaries(starting_parameters, mm,
+                                                fix_parameters)
+        starting_parameter_sets = []
 
     scores, parameter_sets, iterations, times_taken = [], [], [], []
     for i in range(repeats):
         if randomise_initial_guess:
             initial_guess = initial_guess_dist.sample(n=1).flatten()
             starting_parameter_sets.append(initial_guess)
-            boundaries = Boundaries(initial_guess, fix_parameters)
             params_not_fixed = initial_guess
+
+        if not boundaries.check(params_not_fixed):
+            raise ValueError(f"starting parameter lie outside boundary: {params_not_fixed}")
+
         controller = pints.OptimisationController(error, params_not_fixed,
                                                   boundaries=boundaries,
                                                   method=method,
@@ -666,27 +601,26 @@ def fit_model(mm, data, times=None, starting_parameters=None,
     if output_dir:
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
-        if randomise_initial_guess:
-            point2 = [p for i, p in enumerate(mm.get_default_parameters()) if i not
-                      in fix_parameters]
-            fig, axes = pints.plot.function_between_points(error,
-                                                           point_1=best_parameters,
-                                                           point_2=point2,
-                                                           padding=0.1,
-                                                           evaluations=100)
-
-            fig.savefig(os.path.join(output_dir, 'best_fitting_profile_from_default'))
-            plt.close(fig)
-
-        point_2 = starting_parameter_sets[best_index % len(starting_parameter_sets)]
+        point2 = [p for i, p in enumerate(mm.get_default_parameters()) if i not
+                  in fix_parameters]
         fig, axes = pints.plot.function_between_points(error,
                                                        point_1=best_parameters,
-                                                       point_2=point_2,
+                                                       point_2=point2,
                                                        padding=0.1,
                                                        evaluations=100)
 
-        fig.savefig(os.path.join(output_dir, 'best_fitting_profile_from_initial_guess'))
+        fig.savefig(os.path.join(output_dir, 'best_fitting_profile_from_default'))
         plt.close(fig)
+
+        if randomise_initial_guess:
+            point_2 = starting_parameter_sets[best_index % len(starting_parameter_sets)]
+            fig, axes = pints.plot.function_between_points(error,
+                                                           point_1=best_parameters,
+                                                           point_2=point_2,
+                                                           padding=0.1,
+                                                           evaluations=100)
+            fig.savefig(os.path.join(output_dir, 'best_fitting_profile_from_initial_guess'))
+            plt.close(fig)
 
     if fix_parameters:
         for i in np.unique(fix_parameters):
@@ -769,19 +703,22 @@ def get_data(well, protocol, data_directory, experiment_name='newtonrun4', sweep
     return data
 
 
-def fit_well_data(model_class, well, protocol, data_directory, max_iterations,
+def fit_well_data(model_class_name : str, well, protocol, data_directory, max_iterations,
                   output_dir=None, T=None, K_in=None, K_out=None,
                   default_parameters: float = None, removal_duration=5,
                   repeats=1, infer_E_rev=False, fit_initial_conductance=True,
                   experiment_name='newtonrun4', solver=None, E_rev=None,
                   randomise_initial_guess=True, parallel=False,
-                  solver_type=None, sweep=None, scale_conductance=True):
+                  solver_type=None, sweep=None, scale_conductance=True,
+                  no_conductance_boundary=False):
 
     if default_parameters is None or len(default_parameters) == 0:
-        default_parameters = model_class().get_default_parameters()
+        default_parameters = make_model_of_class(model_class_name).get_default_parameters()
+
+    parameter_labels = make_model_of_class(model_class_name).get_parameter_labels()
 
     if max_iterations == 0:
-        df = pd.DataFrame(default_parameters[None, :], columns=model_class().parameter_labels)
+        df = pd.DataFrame(default_parameters[None, :], columns=parameter_labels)
         df['score'] = np.inf
         return df
 
@@ -812,37 +749,36 @@ def fit_well_data(model_class, well, protocol, data_directory, max_iterations,
         except Exception:
             pass
 
-    model = model_class(voltage=voltage_func, times=times,
-                        parameters=default_parameters, E_rev=E_rev,
-                        protocol_description=protocol_desc)
+    model = make_model_of_class(model_class_name, voltage=voltage_func,
+                                times=times,
+                                default_parameters=default_parameters,
+                                E_rev=E_rev,
+                                protocol_description=protocol_desc)
 
     if default_parameters is not None:
-        initial_params = default_parameters
+        initial_params = default_parameters.copy()
 
     columns = model.get_parameter_labels()
 
     if infer_E_rev:
         columns.append("E_rev")
 
-    if scale_conductance:
-        # scale conductance to match data
-        def optim_func(p):
-            p_vec = default_parameters.copy()
-            p_vec[model.GKr_index] = p
-            return np.sum((data - solver(p_vec))**2)
+    if solver is not None and solver_type is not None:
+        raise Exception('solver and solver type provided')
 
-        res = scipy.optimize.minimize_scalar(optim_func,
-                                             default_parameters[model.GKr_index],
-                                             method='bounded', bounds=[0, 1e3])
+    if solver is None:
+        try:
+            solver = model.make_forward_solver_of_type(solver_type)
+            solver()
+        except numba.core.errors.TypingError as exc:
+            logging.warning(f"unable to make nopython forward solver {str(exc)}")
+            solver = model.make_forward_solver_of_type(solver_type, njitted=False)
 
-        params_scaled = default_parameters.copy()
-        params_scaled[model.GKr_index] = res.x
-
-        if optim_func(params_scaled) < optim_func(default_parameters[model.GKr_index]):
-            default_parameters = params_scaled
+    if not np.all(np.isfinite(solver())):
+        raise Exception('Default parameters gave non-finite output')
 
     fitted_params, score, fitting_df = fit_model(model, data, solver=solver,
-                                                 starting_parameters=default_parameters,
+                                                 starting_parameters=initial_params,
                                                  max_iterations=max_iterations,
                                                  subset_indices=indices,
                                                  parallel=parallel,
@@ -850,32 +786,19 @@ def fit_well_data(model_class, well, protocol, data_directory, max_iterations,
                                                  return_fitting_df=True,
                                                  repeats=repeats,
                                                  output_dir=output_dir,
-                                                 solver_type=solver_type)
+                                                 solver_type=solver_type,
+                                                 no_conductance_boundary=no_conductance_boundary)
 
     fig = plt.figure(figsize=(14, 12))
-
-    if solver is not None and solver_type is not None:
-        raise Exception('solver and solver type provided')
-
-    if solver is None:
-        if solver_type == 'hybrid':
-            solver = model.make_hybrid_solver_current()
-        elif solver_type == 'ida':
-            solver = model.make_ida_solver_current()
-        elif solver_type == 'default' or solver_type is None:
-            solver = model.make_forward_solver_current()
-        elif solver_type == 'dop853':
-            solver = model.make_forward_solver_current(solver_type='dop853')
-        else:
-            raise Exception(f"solver type: {solver_type} is not valid")
-        solver = model.make_forward_solver_current()
-
+    ax = fig.subplots()
     for i, row in fitting_df.iterrows():
         fitted_params = row[model.get_parameter_labels()].values.flatten()
-        ax = fig.subplots()
-        ax.plot(times, solver(fitted_params), label='fitted parameters')
-        ax.plot(times, solver(params_scaled), label='default parameters')
-        ax.plot(times, data, color='grey', label='data', alpha=.5)
+        try:
+            ax.plot(times, solver(fitted_params), label='fitted parameters')
+            ax.plot(times, solver(initial_params), label='default parameters')
+            ax.plot(times, data, color='grey', label='data', alpha=.5)
+        except Exception:
+            pass
 
         ax.legend()
 
@@ -885,8 +808,9 @@ def fit_well_data(model_class, well, protocol, data_directory, max_iterations,
         if output_dir is not None:
             if not os.path.exists(output_dir):
                 os.makedirs(output_dir)
+            fname = f"{well}_{protocol}_fit_{i}" if i < repeats else f"{well}_{protocol}_initial_guess_{i}"
 
-            fig.savefig(os.path.join(output_dir, f"{well}_{protocol}_fit_{i}"))
+            fig.savefig(os.path.join(output_dir, fname))
             ax.cla()
     plt.close(fig)
 
@@ -897,7 +821,7 @@ def fit_well_data(model_class, well, protocol, data_directory, max_iterations,
 
 def get_all_wells_in_directory(data_dir, experiment_name='newtonrun4'):
 
-    regex = f"^{experiment_name}-([a-z|A-Z|0-9]*)-([A-Z]|0-9]*).csv$"
+    regex = f"^{experiment_name}-([a-z|A-Z|0-9]*)-([A-Z]|0-9]*)"
     regex = re.compile(regex)
     wells = []
     group = 1
@@ -1123,20 +1047,159 @@ def compute_mcmc_chains(model, times, indices, data, solver=None,
     return samples[:, burn_in:, :]
 
 
-def get_model_class(name: str):
+def make_model_of_class(name: str, times=None, voltage=None, *args, **kwargs):
     from .BeattieModel import BeattieModel
     from .ClosedOpenModel import ClosedOpenModel
     from .WangModel import WangModel
     from .KempModel import KempModel
 
+    from .model_generation import generate_markov_model_from_graph
+
+    from markov_builder.models.thirty_models import (
+        model_00,
+        model_01,
+        model_02,
+        model_03,
+        model_04,
+        model_05,
+        model_06,
+        model_07,
+        model_08,
+        model_09,
+        model_10,
+        model_11,
+        model_12,
+        model_13,
+        model_14,
+        model_30,
+    )
+
+    thirty_models = [
+        model_00, model_01, model_02, model_03, model_04,
+        model_05, model_06, model_07, model_08, model_09, model_10,
+        model_11, model_12, model_13, model_14, model_30
+    ]
+
+    thirty_models_regex = re.compile(r'^model([0-9]+)$')
+
     if name == 'Beattie' or name == 'BeattieModel':
-        model_class = BeattieModel
+        model = BeattieModel(times, voltage, *args, **kwargs)
     elif name == 'Kemp' or name == 'KempModel':
-        model_class = KempModel
+        model = KempModel(times, voltage, *args, **kwargs)
     elif name == 'CO' or name == 'ClosedOpenModel':
-        model_class = ClosedOpenModel
+        model = ClosedOpenModel(times, voltage, *args, **kwargs)
     elif name == 'Wang' or name == 'WangModel':
-        model_class = WangModel
+        model = WangModel(times, voltage, *args, **kwargs)
+    elif thirty_models_regex.match(name):
+        model_no = int(thirty_models_regex.search(name).group(1))
+        model = generate_markov_model_from_graph(thirty_models[model_no](), times, voltage,
+                                                 *args, **kwargs)
     else:
         assert False, f"no model with name {name}"
-    return model_class
+    return model
+
+
+class fitting_boundaries(pints.Boundaries):
+    def __init__(self, full_parameters, mm, fix_parameters=None):
+        self.fix_parameters = fix_parameters
+        self.full_parameters = full_parameters
+        self.mm = mm
+
+    def check(self, parameters):
+        parameters = parameters.copy()
+        if self.fix_parameters:
+            for i in np.unique(self.fix_parameters):
+                parameters = np.insert(parameters, i, self.full_parameters[i])
+
+        # rates function
+        rates_func = self.mm.get_rates_func(njitted=False)
+
+        Vs = [-120, 60]
+        rates_1 = rates_func(parameters, Vs[0])
+        rates_2 = rates_func(parameters, Vs[1])
+
+        max_transition_rates = np.max(np.vstack([rates_1, rates_2]), axis=0)
+
+        if not np.all(max_transition_rates < 1e3):
+            return False
+
+        if not np.all(max_transition_rates > 1.67e-5):
+            return False
+
+        if max([p for i, p in enumerate(parameters) if i != self.mm.GKr_index]) > 1e5:
+            return False
+
+        if min([p for i, p in enumerate(parameters) if i != self.mm.GKr_index]) < 1e-7:
+            return False
+
+        # Ensure that all parameters > 0
+        return np.all(parameters > 0)
+
+    def n_parameters(self):
+        return self.mm.get_no_parameters() - \
+            len(self.fix_parameters) if self.fix_parameters is not None\
+            else self.mm.get_no_parameters()
+
+    def _sample_once(self, min_log_p, max_log_p):
+        for i in range(1000):
+            p = np.empty(self.full_parameters.shape)
+            p[-1] = self.full_parameters[-1]
+            p[:-1] = 10**np.random.uniform(min_log_p, max_log_p,
+                                           self.full_parameters[:-1].shape)
+
+            if self.fix_parameters:
+                p = p[[i for i in range(len(self.full_parameters)) if i not in
+                       self.fix_parameters]]
+
+            # Check this lies in boundaries
+            if self.check(p):
+                return p
+        logging.warning("Couldn't sample from boundaries")
+        return np.NaN
+
+    def sample(self, n=1):
+        min_log_p, max_log_p = [-7, 1]
+
+        no_parameters = len(self.full_parameters) if not self.fix_parameters\
+            else len(self.full_parameters) - len(self.fix_parameters)
+
+        ret_vec = np.full((n, no_parameters), np.nan)
+        for i in range(n):
+            ret_vec[i, :] = self._sample_once(min_log_p, max_log_p)
+
+        return ret_vec
+
+
+def make_myokit_model(model_name: str):
+
+    from markov_builder.models.thirty_models import (
+        model_00,
+        model_01,
+        model_02,
+        model_03,
+        model_04,
+        model_05,
+        model_06,
+        model_07,
+        model_08,
+        model_09,
+        model_10,
+        model_11,
+        model_12,
+        model_13,
+        model_14,
+        model_30,
+    )
+
+    thirty_models_regex = re.compile(r'^model([0-9]*)$')
+
+    thirty_models = [
+        model_00, model_01, model_02, model_03, model_04,
+        model_05, model_06, model_07, model_08, model_09, model_10,
+        model_11, model_12, model_13, model_14, model_30
+    ]
+    if thirty_models_regex.match(model_name):
+        model_no = int(thirty_models_regex.search(model_name).group(1))
+        mk_model = thirty_models[model_no]().generate_myokit_model()
+
+    return mk_model
