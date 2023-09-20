@@ -1,27 +1,23 @@
-#!/usr/bin/env python3
-
+import os
+import pandas as pd
+import numpy as np
 import multiprocessing
 import regex as re
 import logging
 import matplotlib.pyplot as plt
 import seaborn as sns
 from MarkovModels import common
-from MarkovModels.BeattieModel import BeattieModel
-from MarkovModels.ClosedOpenModel import ClosedOpenModel
-from MarkovModels.KempModel import KempModel
 
 import matplotlib
 matplotlib.use('agg')
 
-import os
-import pandas as pd
-import numpy as np
 
 pool_kws = {'maxtasksperchild': 1}
 
 
 def fit_func(protocol, well, model_class, default_parameters=None, E_rev=None,
              randomise_initial_guess=True, prefix="", repeats=1):
+    np.random.seed()
     this_output_dir = os.path.join(output_dir, f"{prefix}{protocol}_{well}")
 
     res_df = common.fit_well_data(model_class, well, protocol,
