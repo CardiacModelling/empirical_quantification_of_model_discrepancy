@@ -185,9 +185,12 @@ def fit_func(model_class_name, dataset_index, fix_param, protocol):
     param_val_multipliers = np.concatenate([np.linspace(0, 2,
                                                         int(args.no_parameter_steps/2)
                                                         + 1),
-                                            np.linspace(-4/(args.no_parameter_steps - 1),
+                                            np.linspace(0,
                                                         -2,
-                                                        int(args.no_parameter_steps/2))])
+                                                        int(args.no_parameter_steps/2)
+                                                        + 1)
+                                            ])
+    param_val_multipliers = np.unique(param_val_multipliers)
 
     param_vals = 2**param_val_multipliers * default_fixed_param_val
 
