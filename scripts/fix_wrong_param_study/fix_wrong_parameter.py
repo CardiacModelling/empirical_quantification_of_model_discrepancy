@@ -41,7 +41,8 @@ def main():
         of the protocols. Output the resulting parameters to a file for later use")
 
     parser.add_argument('--max_iterations', '-i', type=int, default=100000)
-    parser.add_argument('--repeats', type=int, default=16)
+    # Number of repeats for each optimisation
+    parser.add_argument('--repeats', type=int, default=5)
     parser.add_argument('--cores', '-c', default=1, type=int)
     parser.add_argument('--model', '-m', default='Beattie', type=str)
     parser.add_argument('--method', default='CMAES', type=str)
@@ -49,6 +50,7 @@ def main():
     parser.add_argument('--use_parameter_file')
     parser.add_argument('--protocols', default=common.get_protocol_list(), nargs='+')
     parser.add_argument('--noise', default=0.05, type=float)
+    # Number of repeated samples of synthetic data
     parser.add_argument('--no_repeats', default=100, type=int)
     parser.add_argument('--no_parameter_steps', default=25, type=int)
     parser.add_argument('--fix_params', default=[], type=int, nargs='+')
@@ -164,6 +166,8 @@ def fit_func(model_class_name, dataset_index, fix_param, protocol):
     sub_dir = os.path.join(output_dir, 'fitting', f"param_{fix_param}",
                            f"{protocol}", f"{dataset_index}")
 
+    np.random.seed()
+
     if not os.path.exists(sub_dir):
         try:
             os.makedirs(sub_dir)
@@ -181,7 +185,7 @@ def fit_func(model_class_name, dataset_index, fix_param, protocol):
     param_val_multipliers = np.concatenate([np.linspace(0, 2,
                                                         int(args.no_parameter_steps/2)
                                                         + 1),
-                                            np.linspace(-4/args.no_parameter_steps,
+                                            np.linspace(-4/(args.no_parameter_steps - 1),
                                                         -2,
                                                         int(args.no_parameter_steps/2))])
 
@@ -191,8 +195,6 @@ def fit_func(model_class_name, dataset_index, fix_param, protocol):
                      protocol_description=protocol_desc,
                      times=times,
                      E_rev=E_rev)
-
-    voltages = np.array([voltage_func(t) for t in times])
 
     params = true_params.copy()
     solver = mm.make_forward_solver_current()
@@ -220,10 +222,8 @@ def fit_func(model_class_name, dataset_index, fix_param, protocol):
             params = default_guess.copy()
 
         fitting_output_dir = os.path.join(sub_dir, f"{fix_param_val:.4e}")
-
         randomise_initial_guess = False
-
-        repeats = 20 if i == 0 else args.repeats
+        repeats = 25 if i == 0 else args.repeats
 
         try:
             params, score, fitting_df = common.fit_model(mm, data,
@@ -248,9 +248,6 @@ def fit_func(model_class_name, dataset_index, fix_param, protocol):
             logging.warning("Fitting resulting in worse score than default/previous parameters."
                             + f"Refitting with random initial guesses\n ({score}"
                             + f" vs {min(pre_score1, pre_score2)})")
-
-            # repeats = 20
-            # randomise_initial_guess = True
 
             params, score, fitting_df = common.fit_model(mm, data, fix_parameters=[fix_param],
                                                          repeats=repeats,

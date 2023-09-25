@@ -48,7 +48,7 @@ def main():
         of the protocols. Output the resulting parameters to a file for later use")
 
     parser.add_argument('--max_iterations', '-i', type=int, default=100000)
-    parser.add_argument('--repeats', type=int, default=20)
+    parser.add_argument('--repeats', type=int, default=25)
     parser.add_argument('--dont_randomise_initial_guess', action='store_true')
     parser.add_argument('--wells', '-w', type=str, default=[], nargs='+')
     parser.add_argument('--protocols', type=str, default=[], nargs='+')
