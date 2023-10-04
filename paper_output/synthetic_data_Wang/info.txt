@@ -1,3 +1,0 @@
-Date: 2023-07-07 08:36:35.182133
-Commit e59d1596d6237695be819d0ad2b777a21ec9d9f7
-Command: scripts/fix_wrong_param_study/generate_synthetic_data.py --plot --protocols staircaseramp1 sis spacefill19 longap hhbrute3gstep wangbrute3gstep --noise 0.03 -o output/bmb_synthetic_data_Wang_rev1 --model Wang -c 50
