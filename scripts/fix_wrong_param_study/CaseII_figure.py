@@ -138,21 +138,21 @@ def main():
         else:
             try:
                 prediction_df = pd.read_csv(os.path.join(results_dir,
-                                                        'predictions_df.csv'))
+                                                         'predictions_df.csv'))
             except FileNotFoundError:
                 inv_map = {v: k for k, v in relabel_dict.items()}
                 results_df_original_names = results_df.replace(inv_map)
                 print(results_df_original_names, model_class)
                 prediction_df = compute_predictions_df(results_df_original_names,
-                                                    output_dir,
-                                                    model_class=common.get_model_class(model),
-                                                    args=args)
+                                                       output_dir,
+                                                       model_class=common.get_model_class(model),
+                                                       args=args)
                 prediction_df.to_csv(os.path.join(output_dir,
-                                                "predictions_df.csv"))
+                                                  "predictions_df.csv"))
 
                 prot_func, times, desc = common.get_ramp_protocol_from_csv('longap')
                 full_times = pd.read_csv(os.path.join(args.data_dir,
-                                                    f'synthetic-longap-times.csv'))['time'].values.astype(np.float64)
+                                                      f'synthetic-longap-times.csv'))['time'].values.astype(np.float64)
                 model = model_class(prot_func,
                                     times=full_times,
                                     protocol_description=desc)
@@ -171,8 +171,6 @@ def main():
                         row = sub_df.head(1)
                         params = row[parameter_labels].values.flatten().astype(np.float64)
 
-                        print(params)
-
                         # Predict longap protocol
                         prediction = prediction_solver(params)
                         # Compute RMSE
@@ -190,11 +188,13 @@ def main():
                                             ))
                         new_rows.append(new_row)
 
-            prediction_df = pd.concat([*new_rows, prediction_df],
-                                    ignore_index=True)
+                prediction_df = pd.concat([*new_rows, prediction_df],
+                                        ignore_index=True)
 
-            prediction_df.replace({'fitting_protocol': relabel_dict,
-                                'validation_protocol': relabel_dict}, inplace=True)
+        prediction_df.replace({'fitting_protocol': relabel_dict,
+                               'validation_protocol': relabel_dict}, inplace=True)
+
+        prediction_df['RMSE'] = prediction_df['RMSE'].astype(np.float64)
 
         keep_rows = ~prediction_df.validation_protocol.isin(args.ignore_protocols) &\
             prediction_df.fitting_protocol.isin(relabel_dict.values())
@@ -203,6 +203,7 @@ def main():
         prediction_df['model'] = model_class().get_model_name()
         prediction_dfs.append(prediction_df)
 
+    print(prediction_dfs)
     plot_heatmaps(axes, prediction_dfs)
 
     current = pd.read_csv(os.path.join(args.data_dir,
