@@ -1,11 +1,11 @@
 # Empirical quantification of predictive uncertainty due to model discrepancy by training with an ensemble of experimental designs: an application to ion channel kinetics
-This repository contains the code necessary to reproduce the figures presented in our publication: _Empirical quantification of predictive uncertainty due to model discrepancy by training with an ensemble of experimental designs: an application to ion channel kinetics_, Joseph G. Shuttleworth, Chon Lok Lei, Dominic G. Whittaker, Simon P. Preston and Gary R. Mirams.
+This repository contains the code necessary to reproduce the figures presented in our publication: _"**Empirical quantification of predictive uncertainty due to model discrepancy by training with an ensemble of experimental designs: an application to ion channel kinetics**"_, *Bulletin of Mathematical Biology* (2023) Joseph G. Shuttleworth, Chon Lok Lei, Dominic G. Whittaker, Monique J. Windley, Adam P. Hill, Simon P. Preston and Gary R. Mirams.
 
-This repository consists of package for the processing and analysis of patch-clamp electrophysiology data. Some of this functionality is used in the paper. The code ran to produce our figures are the `scripts` directory, and the corresponding output is provided in the `output` directory.
+This repository consists of package for the processing and analysis of patch-clamp electrophysiology data. Some of this functionality is used in the paper. The code to produce our figures is in the `scripts` directory, and the corresponding output is provided in the `output` directory.
 
 ## Installation
 
-These scripts has been tested with Python version 3.9 (see Dockerfile). It is recommended to install libraries and run scripts in a virtual environment to avoid version conflicts between different projects. To do this:
+These scripts have been tested with Python version 3.9 (see Dockerfile). It is recommended to install libraries and run scripts in a virtual environment to avoid version conflicts between different projects. To do this:
 - Clone this repository `git clone https://github.com/CardiacModelling/empricial_quantification_of_model_discrepancy`
 - Create a python virtual environment `python -m venv .venv` or (`python -m virtualenv folder_name`). If that doesn't work you may need to install virtualenv first `pip install virtualenv`.
 - Activate the virtual environment using `source folder_name/bin/activate`. Simply type `deactivate` to exit the virtual environment at the end of a session.
@@ -16,7 +16,7 @@ These scripts has been tested with Python version 3.9 (see Dockerfile). It is re
 - Install scikit-build: `pip install scikit-build`
 - Install the MarkovModels package by running `pip install -e .`.
 
-Alternatively, you can create a [docker](https://docker.com) image using  `Dockerfile`.
+Alternatively, you can create a [docker](https://docker.com) image using `Dockerfile`.
 
 ## Scripts
 Figure 1 was produced using `scripts/fix_wrong_param_study/simple_example.py`.
