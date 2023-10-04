@@ -1,3 +1,0 @@
-Date: 2023-09-07 17:20:45.885832
-Commit 12395bf42ba13aa11e0a563bb9c5183ede41a826
-Command: scripts/fix_wrong_param_study/fit_all_wells_and_protocols.py output/bmb_synthetic_data_Wang_rev1/synthetic_data_Wang/ --repeats 25 -w 0 1 2 3 4 5 6 7 8 9 --experiment_name synthetic -c 60 --model Beattie --removal_duration 0 --protocols staircaseramp1 sis spacefill19 hhbrute3gstep wangbrute3gstep
