@@ -1,3 +1,3 @@
-Date: 2023-07-18 12:38:45.733538
-Commit 7504c135e9b4e86687fed6f7682c1d95bceaa1d0
-Command: scripts/fix_wrong_param_study/CaseII_figure.py paper_output/bmb_synthetic_data_Wang/synthetic_data_Wang/ paper_output/bmb_CaseII_fitting_Beattie/fitting_0.00_removed_Beattie/ paper_output/bmb_CaseII_fitting_Wang/fitting_0.00_removed_Wang/ --vlim 0.01 1 -o paper_output/CaseII
+Date: 2023-09-28 23:37:37.503596
+Commit 5b9905911fd2af1a01d0e0287de1f81abea611fd
+Command: scripts/fix_wrong_param_study/CaseII_figure.py paper_output/CaseII/bmb_synthetic_data_Wang/synthetic_data_Wang/ paper_output/CaseII/bmb_CaseII_fitting_Beattie/ paper_output/CaseII/bmb_CaseII_fitting_Wang/ --vlim 0.01 1 -o paper_output/CaseII
