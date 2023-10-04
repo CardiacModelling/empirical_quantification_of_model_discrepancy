@@ -5,7 +5,7 @@ This repository consists of package for the processing and analysis of patch-cla
 
 ## Installation
 
-These scripts has been tested with Python version 3.9 (see Dockerfile). It is recommended to install libraries and run scripts in a virtual environment to avoid version conflicts between different projects. To do this:
+These scripts have been tested with Python version 3.9 (see Dockerfile). It is recommended to install libraries and run scripts in a virtual environment to avoid version conflicts between different projects. To do this:
 - Clone this repository `git clone https://github.com/CardiacModelling/empricial_quantification_of_model_discrepancy`
 - Create a python virtual environment `python -m venv .venv` or (`python -m virtualenv folder_name`). If that doesn't work you may need to install virtualenv first `pip install virtualenv`.
 - Activate the virtual environment using `source folder_name/bin/activate`. Simply type `deactivate` to exit the virtual environment at the end of a session.
@@ -16,7 +16,7 @@ These scripts has been tested with Python version 3.9 (see Dockerfile). It is re
 - Install scikit-build: `pip install scikit-build`
 - Install the MarkovModels package by running `pip install -e .`.
 
-Alternatively, you can create a [docker](https://docker.com) image using  `Dockerfile`.
+Alternatively, you can create a [docker](https://docker.com) image using `Dockerfile`.
 
 ## Scripts
 Figure 1 was produced using `scripts/fix_wrong_param_study/simple_example.py`.
