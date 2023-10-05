@@ -1,0 +1,68 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: Empirical Quantification of Model Discrepancy
+message: >-
+  If you use this software, please cite it using the
+  preferred citation below.
+type: software
+authors:
+  - family-names: Shuttleworth
+    given-names: Joseph
+    orcid: 'https://orcid.org/0000-0003-4884-6526'
+    affiliation: University of Nottingham
+  - family-names: Lei
+    given-names: Chon Lok
+    orcid: 'https://orcid.org/0000-0003-0904-554X'
+    affiliation: University of Macau
+  - family-names: Whittaker
+    given-names: Dominic
+    orcid: 'https://orcid.org/0000-0002-2757-5491'
+    affiliation: University of Nottingham
+  - family-names: Mirams
+    given-names: Gary
+    orcid: 'https://orcid.org/0000-0002-4569-4312'
+    affiliation: University of Nottingham
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.8409924
+    description: Zenodo archive
+repository-code: >-
+  https://github.com/CardiacModelling/empirical_quantification_of_model_discrepancy
+repository-artifact: 'https://doi.org/10.5281/zenodo.8409924'
+license: BSD-3-Clause
+version: '1.0'
+date-released: '2023-10-05'
+preferred-citation:
+  type: article
+  authors:
+  - family-names: Shuttleworth
+    given-names: Joseph G
+    orcid: 'https://orcid.org/0000-0003-4884-6526'
+    affiliation: University of Nottingham
+  - family-names: Lei
+    given-names: Chon Lok
+    orcid: 'https://orcid.org/0000-0003-0904-554X'
+    affiliation: University of Macau
+  - family-names: Whittaker
+    given-names: Dominic G
+    orcid: 'https://orcid.org/0000-0002-2757-5491'
+  - family-names: Windley
+    given-names: Monique J
+    affiliation: Victor Chang Cardiac Research Institute
+  - family-names: Hill
+    given-names: Adam P
+    affiliation: Victor Chang Cardiac Research Institute
+  - family-names: Preston
+    given-names: Simon P
+    orcid: 'https://orcid.org/0000-0002-1910-4227'
+    affiliation: University of Nottingham
+  - family-names: Mirams
+    given-names: Gary R
+    orcid: 'https://orcid.org/0000-0002-4569-4312'
+    affiliation: University of Nottingham
+  doi: "10.0000/00000"
+  journal: "Bulletin of Mathematical Biology"
+  title: "Empirical quantification of predictive uncertainty due to model discrepancy by training with an ensemble of experimental designs: an application to ion channel kinetics"
+  year: 2023

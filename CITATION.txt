@@ -1,0 +1,15 @@
+If you use this method or code for a publication, please cite:
+
+JG Shuttleworth, CL Lei, DG Whittaker, MJ Windley, AP Hill, SP Preston, GR Mirams (2023)
+Empirical quantification of predictive uncertainty due to model discrepancy by training with an ensemble of experimental designs: an application to ion channel kinetics
+Bulletin of Mathematical Biology (2023)
+
+Bibtex entry:
+@article{Shuttleworth2023,
+  title={Empirical quantification of predictive uncertainty due to model discrepancy by training with an ensemble of experimental designs: an application to ion channel kinetics},
+  author={Shuttleworth, JG and Lei, CL and Whittaker, DG and Windley, MJ and Hill, AP and Preston, SP and Mirams, GR},
+  journal={Bulletin of Mathematical Biology},
+  year={2023},
+  publisher={Springer}
+}
+
