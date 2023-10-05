@@ -62,7 +62,6 @@ preferred-citation:
     given-names: Gary R
     orcid: 'https://orcid.org/0000-0002-4569-4312'
     affiliation: University of Nottingham
-  doi: "10.0000/00000"
   journal: "Bulletin of Mathematical Biology"
   title: "Empirical quantification of predictive uncertainty due to model discrepancy by training with an ensemble of experimental designs: an application to ion channel kinetics"
   year: 2023
