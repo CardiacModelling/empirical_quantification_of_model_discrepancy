@@ -57,7 +57,6 @@ def main():
     parser.add_argument('--fixed_param', default='Gkr')
     parser.add_argument('--prediction_protocol', default='longap')
 
-    parser.add_argument("--vlim", nargs=2, type=float)
 
     global linestyles
     linestyles = [(0, ()),
@@ -136,7 +135,10 @@ def do_prediction_plots(axes, results_df, prediction_protocol, data):
                                      "synthetic-longap-times.csv"))['time'].values.astype(np.float64)
     current = data['current'].astype(np.float64).values
 
-    vals = sorted(results_df[args.fixed_param].unique())[::2]
+    vals = sorted(results_df[args.fixed_param].unique())
+    vstep = int((len(vals) - 1) / 2)
+    vals = vals[::vstep]
+    print(f"fixed values are {vals}")
 
     voltage_func, times, protocol_desc = common.get_ramp_protocol_from_csv(prediction_protocol)
 
