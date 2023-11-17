@@ -279,7 +279,7 @@ def do_prediction_plots(axes, results_df, prediction_protocol, data):
     for ax in prediction_axes[:-1]:
         ax.set_xticks([])
 
-    prediction_axes[-1].set_xticks([i * 1e3 for i in range(8)])
+    prediction_axes[-1].set_xticks([int(i) * 1e3 for i in labels])
     prediction_axes[-1].set_xticklabels(labels)
 
     axes[1].set_yticks([-100, 40])
