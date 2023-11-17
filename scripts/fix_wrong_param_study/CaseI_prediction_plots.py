@@ -28,6 +28,8 @@ from matplotlib.patches import ConnectionPatch, Rectangle
 import matplotlib.lines as mlines
 
 from matplotlib import rc
+import matplotlib
+matplotlib.use('Agg')
 
 rc('font', **{'family': 'serif', 'serif': ['Computer Modern'], 'size': 8})
 rc('text', usetex=True)
@@ -105,8 +107,6 @@ def main():
     relabel_dict['longap'] = '$d_0$'
     results_df.replace({'protocol': relabel_dict}, inplace=True)
     results_df = results_df.sort_values('protocol')
-
-    print(relabel_dict)
 
     protocols = results_df.protocol.unique()
 
@@ -243,10 +243,10 @@ def do_prediction_plots(axes, results_df, prediction_protocol, data):
         # ax.yaxis.tick_right()
 
         ax.set_xlim([0, 9000])
-        ax.set_xticks([0, 8000])
-        ax.set_xticklabels(['0', '8'], rotation='horizontal')
+        ax.set_xticks([1e3 * i for i in range(9)])
+        ax.set_xticklabels([i for i in range(9)], rotation='horizontal')
 
-        yticks = [0, -2]
+        yticks = [1, 0, -2]
         ax.set_yticks(yticks)
 
         yticklabs = ax.get_yticklabels()
@@ -270,7 +270,7 @@ def do_prediction_plots(axes, results_df, prediction_protocol, data):
     prediction_axes[-1].set_xlabel(r'$t$ (s)')
 
     # axes[colno].yaxis.tick_right()
-    labels = ['0', '7.5']
+    labels = [i for i in range(9)]
     axes[colno].spines.right.set_visible(False)
     axes[colno].spines.top.set_visible(False)
 
@@ -279,11 +279,11 @@ def do_prediction_plots(axes, results_df, prediction_protocol, data):
     for ax in prediction_axes[:-1]:
         ax.set_xticks([])
 
-    prediction_axes[-1].set_xticks([0, 7500])
+    prediction_axes[-1].set_xticks([i * 1e3 for i in range(8)])
     prediction_axes[-1].set_xticklabels(labels)
 
-    axes[colno].set_yticks([-100, 40])
-    axes[colno].set_ylabel(r'$V$ (mV)')
+    axes[1].set_yticks([-100, 40])
+    axes[1].set_ylabel(r'$V$ (mV)')
     # axes[colno].set_yticklabels(['-100mV', '+40mV'])
 
 
